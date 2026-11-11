@@ -193,6 +193,24 @@ class UpdateTests(unittest.TestCase):
         with self.assertRaises(upd.UpdateError):
             upd.main(self.path)
 
+    def test_atomic_write_leaves_no_temp_file(self):
+        self.run_with(FakeYouTube())
+        self.assertEqual(sorted(os.listdir(self.dir)), ["index.html"])
+
+    def test_interrupted_write_keeps_page(self):
+        real_replace = os.replace
+
+        def crash(*args):
+            raise KeyboardInterrupt("процесс прерван")
+        upd.os.replace = crash
+        try:
+            upd.http_get = FakeYouTube()
+            with self.assertRaises(KeyboardInterrupt):
+                upd.main(self.path)
+        finally:
+            upd.os.replace = real_replace
+        self.assertEqual(self.page(), PAGE)
+
     def test_second_run_is_stable(self):
         first = self.run_with(FakeYouTube())
         second = self.run_with(FakeYouTube())
