@@ -197,7 +197,12 @@ def build_block(new, popular, indent="      ", now=None):
         f'    <h3>{esc(title)}</h3>',
     ]
     if sub:
-        out.append(f'    <p class="sub">{esc(sub)}</p>')
+        # Первая часть — подзаголовок строкой, остальные («Latin Pop 2026» и т. п.) — неразрывные плашки
+        parts = sub.split(" · ")
+        out.append(f'    <p class="sub">{esc(parts[0])}</p>')
+        if len(parts) > 1:
+            tags = "".join(f'<span class="tag">{esc(p)}</span>' for p in parts[1:])
+            out.append(f'    <p class="tags">{tags}</p>')
     out += [
         f'    <a class="btn" href="https://www.youtube.com/watch?v={vid}" data-i18n="watch-new">Смотреть на YouTube</a>',
         '  </div>',

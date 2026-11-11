@@ -137,6 +137,12 @@ class UpdateTests(unittest.TestCase):
         self.assertIn('href="https://www.youtube.com/watch?v=qUbkpldW_Z0"', new_block)  # запасная ссылка
         self.assertNotIn("<iframe", page)                                 # до нажатия YouTube не грузится
 
+    def test_subtitle_and_tags(self):
+        page = self.run_with(FakeYouTube())
+        new_block = page.split('<p class="subhead"')[0]
+        self.assertIn('<p class="sub">Versión en Español</p>', new_block)
+        self.assertIn('<span class="tag">Latin Pop 2026</span>', new_block)
+
     def test_shorts_and_premieres_excluded(self):
         for uulf in (True, False):
             with self.subTest(uulf=uulf):
