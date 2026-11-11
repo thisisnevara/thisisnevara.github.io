@@ -128,6 +128,15 @@ class UpdateTests(unittest.TestCase):
         self.assertEqual(positions, sorted(positions))                   # по убыванию просмотров
         self.assertNotIn("qUbkpldW_Z0", grid)                            # новый релиз не повторяется
 
+    def test_player_uses_new_release_id(self):
+        page = self.run_with(FakeYouTube())
+        new_block = page.split('<p class="subhead"')[0]
+        self.assertEqual(page.count('data-video="'), 1)                  # плеер только у нового релиза
+        self.assertIn('data-video="qUbkpldW_Z0"', new_block)
+        self.assertIn('class="play"', new_block)
+        self.assertIn('href="https://www.youtube.com/watch?v=qUbkpldW_Z0"', new_block)  # запасная ссылка
+        self.assertNotIn("<iframe", page)                                 # до нажатия YouTube не грузится
+
     def test_shorts_and_premieres_excluded(self):
         for uulf in (True, False):
             with self.subTest(uulf=uulf):

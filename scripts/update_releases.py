@@ -185,9 +185,13 @@ def build_block(new, popular, indent="      ", now=None):
     cover = f'<img src="{img}" alt="{esc("Nevara — " + title)}">'
     badge = ('<span class="badge" data-i18n="new">НОВЫЙ РЕЛИЗ</span>' if is_recent(new["published"], now)
              else '<span class="badge" data-i18n="latest">ПОСЛЕДНИЙ РЕЛИЗ</span>')
+    vid = esc(new["id"])
+    play = ('<button type="button" class="play" data-title="' + esc("Nevara — " + title) + '">'
+            '<span class="pill"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>'
+            '<span data-i18n="listen-here">Слушать</span></span></button>')
     out = [
-        f'<a class="new-release" href="https://www.youtube.com/watch?v={esc(new["id"])}">',
-        f'  <div class="cover">{cover}</div>',
+        '<div class="new-release">',
+        f'  <div class="cover" data-video="{vid}">{cover}{play}</div>',
         '  <div class="text">',
         f'    {badge}',
         f'    <h3>{esc(title)}</h3>',
@@ -195,9 +199,9 @@ def build_block(new, popular, indent="      ", now=None):
     if sub:
         out.append(f'    <p class="sub">{esc(sub)}</p>')
     out += [
-        '    <span class="btn primary" data-i18n="watch-new">Смотреть на YouTube</span>',
+        f'    <a class="btn" href="https://www.youtube.com/watch?v={vid}" data-i18n="watch-new">Смотреть на YouTube</a>',
         '  </div>',
-        '</a>',
+        '</div>',
         '<p class="subhead" data-i18n="popular">Популярные треки</p>',
         '<div class="release-grid">',
     ]
