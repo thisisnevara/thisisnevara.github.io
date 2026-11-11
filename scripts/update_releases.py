@@ -219,7 +219,8 @@ def build_block(new, popular, indent="      ", now=None):
 def main(path):
     if not os.environ.get("YOUTUBE_API_KEY"):
         raise UpdateError("не задан YOUTUBE_API_KEY (секрет в настройках GitHub)")
-    page = open(path, encoding="utf-8").read()
+    with open(path, encoding="utf-8") as f:
+        page = f.read()
     if not START.search(page):
         raise UpdateError("в index.html не найдены метки AUTO:RELEASES")
 
@@ -233,8 +234,14 @@ def main(path):
     if updated == page:
         print("Изменений нет.")
         return
-    with open(path, "w", encoding="utf-8") as f:
+    # Атомарная запись: сначала во временный файл рядом, потом мгновенная замена.
+    # Если процесс прервётся посередине, index.html останется целым.
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
         f.write(updated)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, path)
     print(f"Новый релиз: {split_title(new['title'])[0]} ({new['id']})")
     for n, v in enumerate(popular, 1):
         print(f"  {n}. {split_title(v['title'])[0]} — {v['views']} просмотров")
