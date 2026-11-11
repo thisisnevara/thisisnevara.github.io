@@ -80,7 +80,7 @@ p{max-width:62ch;margin:0 0 14px;color:var(--muted)}
 .new-release{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:22px;align-items:center;margin:24px 0 36px;padding:14px;border-radius:20px;background:var(--asphalt);border:1px solid rgba(255,46,136,.55);box-shadow:0 0 34px rgba(255,46,136,.18);text-decoration:none;transition:border-color .2s}
 .new-release .text{display:flex;flex-direction:column;align-items:flex-start;gap:10px;padding:6px 8px 6px 0}
 .badge{font-weight:700;font-size:12px;letter-spacing:.2em;color:#fff;background:var(--neon);border-radius:999px;padding:6px 12px}
-.new-release h3{font-family:var(--display);font-weight:900;font-size:clamp(26px,3.6vw,40px);line-height:1.05;margin:4px 0 0}
+.new-release h3{font-family:var(--display);font-weight:900;font-size:clamp(26px,3.6vw,40px);line-height:1.05;margin:4px 0 0;text-transform:uppercase;overflow-wrap:anywhere}
 .new-release .sub{margin:0 0 8px;color:var(--ink);font-weight:500}
 /* Covers: hqdefault exists for every video; a 16:9 box with cover crops its letterbox bars exactly */
 .cover{position:relative;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:linear-gradient(135deg,#261642,#8b2861)}
@@ -92,7 +92,7 @@ p{max-width:62ch;margin:0 0 14px;color:var(--muted)}
 .release{display:flex;flex-direction:column;gap:10px;padding:10px 10px 14px;border-radius:16px;background:var(--asphalt);border:1px solid var(--line);text-decoration:none;transition:transform .2s,border-color .2s}
 .release .meta{display:flex;flex-direction:column;gap:4px;padding:0 4px}
 .release small{letter-spacing:.12em;font-size:11px;font-weight:700;color:var(--sodium)}
-.release b{font-family:var(--display);font-size:clamp(15px,1.8vw,19px);overflow-wrap:anywhere}
+.release b{font-family:var(--display);font-size:clamp(15px,1.8vw,19px);overflow-wrap:anywhere;text-transform:uppercase}
 .release span{font-size:13px;color:var(--muted)}
 .more{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
 .chip-link{display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border-radius:999px;border:1px solid var(--line);font-weight:700;font-size:14px;text-decoration:none;color:var(--ink)}
@@ -199,6 +199,7 @@ html{scroll-behavior:smooth}
     <div>
       <p class="lead" data-i18n="songs-lead">Найди свой ритм.</p>
       <p data-i18n="songs-intro">Выбирай песню и слушай на официальном YouTube-канале Nevara.</p>
+      <!-- AUTO:RELEASES:START (этот блок обновляется автоматически, вручную не править) -->
       <a class="new-release" href="https://www.youtube.com/watch?v=qUbkpldW_Z0">
         <div class="cover"><img src="https://i.ytimg.com/vi/qUbkpldW_Z0/hqdefault.jpg" alt="Nevara — BAMBOLEO, Versión en Español" onerror="this.classList.add('broken')"></div>
         <div class="text">
@@ -215,6 +216,7 @@ html{scroll-behavior:smooth}
         <a class="release" href="https://www.youtube.com/watch?v=GuD_Mh0cCrA"><div class="cover" style="background:linear-gradient(135deg,#592736,#a05a27)"><img src="https://i.ytimg.com/vi/GuD_Mh0cCrA/hqdefault.jpg" alt="" loading="lazy" onerror="this.classList.add('broken')"></div><div class="meta"><small>NEVARA / 03</small><b>ЛАТИНО-ПАНИКА</b><span data-i18n="watch">Смотреть на YouTube ↗</span></div></a>
         <a class="release" href="https://www.youtube.com/watch?v=ZVjUQYGsI4c"><div class="cover" style="background:linear-gradient(135deg,#181e4b,#744d92)"><img src="https://i.ytimg.com/vi/ZVjUQYGsI4c/hqdefault.jpg" alt="" loading="lazy" onerror="this.classList.add('broken')"></div><div class="meta"><small>NEVARA / 04</small><b>VEN PARA MÍ</b><span data-i18n="watch">Смотреть на YouTube ↗</span></div></a>
       </div>
+      <!-- AUTO:RELEASES:END -->
       <div class="more">
         <a class="btn primary" href="https://www.youtube.com/@thisisnevara/videos" data-i18n="all-songs">Все песни на YouTube →</a>
         <a class="chip-link" href="https://www.youtube.com/@thisisnevara/shorts">Shorts</a>
