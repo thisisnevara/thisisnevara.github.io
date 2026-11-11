@@ -1,0 +1,78 @@
+# Обновление и публикация сайта Nevara.
+# Запускается: раз в день, при каждой загрузке файлов в main и вручную (Actions → Run workflow).
+name: Update and deploy site
+
+on:
+  schedule:
+    - cron: "23 6 * * *"      # каждый день в 06:23 UTC (07:23 по Праге зимой)
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install Pillow
+        run: python -m pip install --quiet pillow
+
+      - name: Update releases from YouTube
+        id: update
+        continue-on-error: true     # если YouTube не ответил, сайт публикуется как был
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+        run: python scripts/update_releases.py index.html
+
+      - name: Save changes to the repository
+        if: steps.update.outcome == 'success'
+        run: |
+          if git diff --quiet -- index.html; then
+            echo "Песни не изменились."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add index.html
+            git commit -m "Автообновление: релиз и популярные треки"
+            git push
+          fi
+
+      - name: Collect site files
+        run: |
+          mkdir _site
+          cp index.html favicon.svg nevara-og.jpg CNAME _site/
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v6
+
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
