@@ -1,10 +1,13 @@
 # Обновление и публикация сайта Nevara.
 # Запускается: раз в день, при каждой загрузке файлов в main и вручную (Actions → Run workflow).
+#
+# Если обновление песен не удалось, сайт всё равно публикуется в последней рабочей версии,
+# а запуск в конце помечается красным крестиком — GitHub пришлёт письмо, ошибка не пройдёт незамеченной.
 name: Update and deploy site
 
 on:
   schedule:
-    - cron: "23 6 * * *"      # каждый день в 06:23 UTC (07:23 по Праге зимой)
+    - cron: "23 6 * * *"      # каждый день в 06:23 UTC (07:23 по Праге зимой, 08:23 летом)
   push:
     branches: [main]
   workflow_dispatch:
@@ -22,6 +25,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write          # сохранить обновлённый index.html в проект
+    outputs:
+      tests: ${{ steps.tests.outcome }}
+      update: ${{ steps.update.outcome }}
+      saved: ${{ steps.save.outputs.saved }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -34,17 +41,25 @@ jobs:
       - name: Install dependencies
         run: python -m pip install --quiet -r scripts/requirements.txt
 
+      - name: Run tests
+        id: tests
+        continue-on-error: true
+        run: python -m unittest discover -s scripts -v
+
       - name: Update releases from YouTube
         id: update
-        continue-on-error: true     # если YouTube не ответил, сайт публикуется как был
+        if: steps.tests.outcome == 'success'      # скрипт с ошибками не трогает сайт
+        continue-on-error: true                   # если YouTube не ответил, сайт публикуется как был
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
         run: python scripts/update_releases.py index.html
 
       - name: Save changes to the repository
+        id: save
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          echo "saved=true" >> "$GITHUB_OUTPUT"
 
           # Новые песни или порядок — сохраняем index.html
           if [ "${{ steps.update.outcome }}" = "success" ] && ! git diff --quiet -- index.html; then
@@ -61,11 +76,30 @@ jobs:
             git commit -m "Служебная отметка: расписание активно"
           fi
 
-          # Отправляем, если есть что; перед этим подтягиваем возможные ручные изменения
+          # Отправляем, если есть что; перед этим подтягиваем возможные ручные изменения.
+          # При конфликте (вы правили index.html в ту же минуту) ничего не ломаем:
+          # отменяем объединение, сайт публикуется, сохранение повторится завтра.
           if [ -n "$(git log origin/main..HEAD --oneline)" ]; then
-            git pull --rebase origin main
-            git push origin HEAD:main
+            if git pull --rebase origin main; then
+              git push origin HEAD:main
+            else
+              git rebase --abort
+              echo "saved=false" >> "$GITHUB_OUTPUT"
+              echo "::warning title=Изменения не сохранены::Конфликт с ручной правкой index.html. Сайт опубликован, сохранение повторится при следующем запуске."
+            fi
           fi
+
+      - name: Report problems
+        if: steps.tests.outcome != 'success' || steps.update.outcome != 'success'
+        run: |
+          if [ "${{ steps.tests.outcome }}" != "success" ]; then
+            msg="Тесты скрипта не прошли — обновление песен пропущено, сайт опубликован в прошлой версии. Смотрите шаг «Run tests»."
+          else
+            msg="Не удалось обновить песни с YouTube — сайт опубликован в прошлой версии. Причина в шаге «Update releases from YouTube»."
+          fi
+          echo "::warning title=Песни не обновлены::$msg"
+          echo "### ⚠️ Песни не обновлены" >> "$GITHUB_STEP_SUMMARY"
+          echo "$msg" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Collect site files
         run: |
@@ -90,3 +124,21 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
+
+  # Сайт уже опубликован. Этот шаг только делает запуск красным, если что-то пошло не так,
+  # чтобы GitHub прислал письмо.
+  status:
+    needs: [build, deploy]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Check results
+        run: |
+          ok=true
+          [ "${{ needs.build.outputs.tests }}" = "success" ] || { echo "::error::Тесты скрипта не прошли."; ok=false; }
+          [ "${{ needs.build.outputs.update }}" = "success" ] || { echo "::error::Песни с YouTube не обновились."; ok=false; }
+          [ "${{ needs.build.outputs.saved }}" = "true" ] || { echo "::error::Изменения не сохранены из-за конфликта."; ok=false; }
+          [ "${{ needs.deploy.result }}" = "success" ] || { echo "::error::Сайт не опубликован."; ok=false; }
+          $ok && echo "Всё в порядке."
+          $ok
