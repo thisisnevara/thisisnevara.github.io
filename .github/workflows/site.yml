@@ -24,7 +24,7 @@ jobs:
       contents: write          # сохранить обновлённый index.html в проект
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python
         uses: actions/setup-python@v6
