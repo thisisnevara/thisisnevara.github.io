@@ -25,6 +25,8 @@ import urllib.request
 
 CHANNEL_ID = "UCz_nzmjWeqU3sNkWOv_rP9A"   # @thisisnevara
 POPULAR_COUNT = 4
+NEW_FOR_DAYS = 60          # дольше этого срока бейдж «Новый релиз» меняется на «Последний релиз»
+VIDEO_ID = re.compile(r"^[A-Za-z0-9_-]{11}$")
 API = "https://www.googleapis.com/youtube/v3/"
 START = re.compile(r"(<!-- AUTO:RELEASES:START[^>]*-->\n)(.*?)(\n\s*<!-- AUTO:RELEASES:END -->)", re.S)
 GRADIENTS = ["#261642,#8b2861", "#173c4c,#5d2c83", "#592736,#a05a27", "#181e4b,#744d92",
@@ -82,9 +84,13 @@ def fetch_videos():
         ids = playlist_video_ids("UULF" + suffix)
     except UpdateError:
         ids = []
-    if not ids:
+    if ids:
+        print(f"Источник: плейлист полноценных видео (UULF), видео: {len(ids)}")
+    else:
         only_long = False
         ids = playlist_video_ids("UU" + suffix)   # все загрузки, Shorts отфильтруем ниже
+        print(f"ВНИМАНИЕ: плейлист UULF недоступен, использую все загрузки (UU) с фильтром Shorts "
+              f"по длительности и #shorts — фильтр менее точный. Видео: {len(ids)}")
     if not ids:
         raise UpdateError("на канале не найдено ни одного видео")
 
@@ -101,6 +107,8 @@ def fetch_videos():
             text = (sn.get("title", "") + " " + sn.get("description", "")).lower()
             if not only_long and (secs <= 60 or "#shorts" in text):
                 continue
+            if not VIDEO_ID.match(v.get("id", "")):
+                raise UpdateError(f"неожиданный формат id видео: {v.get('id')!r}")
             videos.append({
                 "id": v["id"],
                 "title": sn.get("title", ""),
@@ -152,7 +160,8 @@ def thumb_data_uri(thumbs, width):
         buf = io.BytesIO()
         im.save(buf, "WEBP", quality=72, method=6)
         return "data:image/webp;base64," + base64.b64encode(buf.getvalue()).decode()
-    return None   # без обложки останется цветная подложка
+    # Не публикуем карточку без обложки: лучше оставить прошлую версию блока
+    raise UpdateError("не удалось скачать обложку ни в одном размере; сайт не меняю")
 
 
 # ---------- HTML ----------
@@ -160,15 +169,27 @@ def esc(s):
     return html.escape(s, quote=True)
 
 
-def build_block(new, popular, indent="      "):
+def is_recent(published, now=None):
+    from datetime import datetime, timezone, timedelta
+    now = now or datetime.now(timezone.utc)
+    try:
+        dt = datetime.fromisoformat(published.replace("Z", "+00:00"))
+    except ValueError:
+        return True
+    return now - dt <= timedelta(days=NEW_FOR_DAYS)
+
+
+def build_block(new, popular, indent="      ", now=None):
     title, sub = split_title(new["title"])
     img = thumb_data_uri(new["thumbs"], 800)
-    cover = f'<img src="{img}" alt="{esc("Nevara — " + title)}">' if img else ""
+    cover = f'<img src="{img}" alt="{esc("Nevara — " + title)}">'
+    badge = ('<span class="badge" data-i18n="new">НОВЫЙ РЕЛИЗ</span>' if is_recent(new["published"], now)
+             else '<span class="badge" data-i18n="latest">ПОСЛЕДНИЙ РЕЛИЗ</span>')
     out = [
         f'<a class="new-release" href="https://www.youtube.com/watch?v={esc(new["id"])}">',
         f'  <div class="cover">{cover}</div>',
         '  <div class="text">',
-        '    <span class="badge" data-i18n="new">НОВЫЙ РЕЛИЗ</span>',
+        f'    {badge}',
         f'    <h3>{esc(title)}</h3>',
     ]
     if sub:
@@ -183,7 +204,7 @@ def build_block(new, popular, indent="      "):
     for n, v in enumerate(popular, 1):
         name, _ = split_title(v["title"])
         img = thumb_data_uri(v["thumbs"], 480)
-        cover = f'<img src="{img}" alt="" loading="lazy">' if img else ""
+        cover = f'<img src="{img}" alt="" loading="lazy">'
         grad = GRADIENTS[(n - 1) % len(GRADIENTS)]
         out.append(
             f'  <a class="release" href="https://www.youtube.com/watch?v={esc(v["id"])}">'
