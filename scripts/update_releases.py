@@ -248,9 +248,14 @@ def build_catalog(videos):
         name, sub = split_title(v["title"])
         day = v["published"][:10]
         shown = f'{day[5:7]}.{day[:4]}' if re.fullmatch(r"\d{4}-\d{2}-\d{2}", day) else ""
-        # подпись переносится, но последние два слова каждой части держатся вместе
-        sub_html = (f'<span class="c-sub">' + " · ".join(esc(keep_tail(p)) for p in sub.split(" · ")) + "</span>"
-                    if sub else "")
+        # подпись переносится, но последние два слова каждой части держатся вместе;
+        # жанр с годом (всё после первой части) выделяется цветом, как плашка у нового релиза
+        sub_html = ""
+        if sub:
+            parts = [esc(keep_tail(p)) for p in sub.split(" · ")]
+            rest = "".join(f'<span class="c-sep"> · </span><span class="c-genre">{p}</span>' for p in parts[1:])
+            sub_html = f'<span class="c-sub">{parts[0]}{rest}</span>'
+
         when = f'<time datetime="{esc(day)}">{shown}</time>' if shown else ""
         out.append(
             f'    <li><a href="https://www.youtube.com/watch?v={esc(v["id"])}" title="{esc(v["title"])}">'
