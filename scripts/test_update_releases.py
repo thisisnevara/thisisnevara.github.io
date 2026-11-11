@@ -140,8 +140,8 @@ class UpdateTests(unittest.TestCase):
     def test_subtitle_and_tags(self):
         page = self.run_with(FakeYouTube())
         new_block = page.split('<p class="subhead"')[0]
-        self.assertIn('<p class="sub">Versión en Español</p>', new_block)
-        self.assertIn('<span class="tag">Latin Pop 2026</span>', new_block)
+        self.assertIn('<p class="sub">Versión en\u00a0Español</p>', new_block)
+        self.assertIn('<span class="tag">Latin Pop\u00a02026</span>', new_block)
 
     def test_catalog_lists_all_songs_newest_first(self):
         page = self.run_with(FakeYouTube())
@@ -158,7 +158,7 @@ class UpdateTests(unittest.TestCase):
     def test_catalog_keeps_versions_apart_and_full_title(self):
         page = self.run_with(FakeYouTube())
         catalog = page.split('<details class="catalog">')[1]
-        self.assertIn('<span class="c-name">BAMBOLEO</span><span class="c-sub"><span>Versión en Español</span> · <span>Latin Pop 2026</span></span>', catalog)
+        self.assertIn('<span class="c-name">BAMBOLEO</span><span class="c-sub">Versión en\u00a0Español · Latin Pop\u00a02026</span>', catalog)
         self.assertIn('title="Nevara — BAMBOLEO | Versión en Español | Latin Pop 2026"', catalog)
 
     def test_catalog_escapes_titles(self):

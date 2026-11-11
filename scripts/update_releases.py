@@ -169,6 +169,12 @@ def esc(s):
     return html.escape(s, quote=True)
 
 
+def keep_tail(s):
+    """Склеивает два последних слова неразрывным пробелом: «Latin Pop 2026» не оставит «2026» одно на строке."""
+    head, sep, tail = s.rpartition(" ")
+    return f"{head}\u00a0{tail}" if sep and head else s
+
+
 def is_recent(published, now=None):
     from datetime import datetime, timezone, timedelta
     now = now or datetime.now(timezone.utc)
@@ -199,9 +205,9 @@ def build_block(new, popular, indent="      ", now=None, catalog=()):
     if sub:
         # Первая часть — подзаголовок строкой, остальные («Latin Pop 2026» и т. п.) — неразрывные плашки
         parts = sub.split(" · ")
-        out.append(f'    <p class="sub">{esc(parts[0])}</p>')
+        out.append(f'    <p class="sub">{esc(keep_tail(parts[0]))}</p>')
         if len(parts) > 1:
-            tags = "".join(f'<span class="tag">{esc(p)}</span>' for p in parts[1:])
+            tags = "".join(f'<span class="tag">{esc(keep_tail(p))}</span>' for p in parts[1:])
             out.append(f'    <p class="tags">{tags}</p>')
     out += [
         f'    <a class="btn" href="https://www.youtube.com/watch?v={vid}" data-i18n="watch-new">Смотреть на YouTube</a>',
@@ -242,8 +248,8 @@ def build_catalog(videos):
         name, sub = split_title(v["title"])
         day = v["published"][:10]
         shown = f'{day[5:7]}.{day[:4]}' if re.fullmatch(r"\d{4}-\d{2}-\d{2}", day) else ""
-        # части подписи неразрывные: «Latin Pop 2026» не разорвётся посередине
-        sub_html = (f'<span class="c-sub">' + " · ".join(f"<span>{esc(p)}</span>" for p in sub.split(" · ")) + "</span>"
+        # подпись переносится, но последние два слова каждой части держатся вместе
+        sub_html = (f'<span class="c-sub">' + " · ".join(esc(keep_tail(p)) for p in sub.split(" · ")) + "</span>"
                     if sub else "")
         when = f'<time datetime="{esc(day)}">{shown}</time>' if shown else ""
         out.append(
