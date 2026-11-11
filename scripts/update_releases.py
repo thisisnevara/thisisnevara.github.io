@@ -179,7 +179,7 @@ def is_recent(published, now=None):
     return now - dt <= timedelta(days=NEW_FOR_DAYS)
 
 
-def build_block(new, popular, indent="      ", now=None):
+def build_block(new, popular, indent="      ", now=None, catalog=()):
     title, sub = split_title(new["title"])
     img = thumb_data_uri(new["thumbs"], 800)
     cover = f'<img src="{img}" alt="{esc("Nevara — " + title)}">'
@@ -222,7 +222,37 @@ def build_block(new, popular, indent="      ", now=None):
             f'<span data-i18n="watch">Смотреть на YouTube ↗</span></div></a>'
         )
     out.append('</div>')
+    out += build_catalog(catalog)
     return "\n".join(indent + line for line in out)
+
+
+def build_catalog(videos):
+    """Раскрывающийся список всех песен: новые сверху, без обложек.
+    Полное исходное название видео — в подсказке (title), на случай ошибки сокращения."""
+    if not videos:
+        return []
+    chevron = ('<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" '
+               'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>')
+    out = [
+        '<details class="catalog">',
+        f'  <summary><span data-i18n="catalog">Все песни Nevara</span><span class="count">{len(videos)}</span>{chevron}</summary>',
+        '  <ol class="catalog-list">',
+    ]
+    for v in videos:
+        name, sub = split_title(v["title"])
+        day = v["published"][:10]
+        shown = f'{day[5:7]}.{day[:4]}' if re.fullmatch(r"\d{4}-\d{2}-\d{2}", day) else ""
+        # части подписи неразрывные: «Latin Pop 2026» не разорвётся посередине
+        sub_html = (f'<span class="c-sub">' + " · ".join(f"<span>{esc(p)}</span>" for p in sub.split(" · ")) + "</span>"
+                    if sub else "")
+        when = f'<time datetime="{esc(day)}">{shown}</time>' if shown else ""
+        out.append(
+            f'    <li><a href="https://www.youtube.com/watch?v={esc(v["id"])}" title="{esc(v["title"])}">'
+            f'<span class="c-text"><span class="c-name">{esc(name)}</span>{sub_html}</span>'
+            f'{when}<span class="c-arrow" aria-hidden="true">↗</span></a></li>'
+        )
+    out += ['  </ol>', '</details>']
+    return out
 
 
 def main(path):
@@ -238,7 +268,7 @@ def main(path):
     new = videos[0]
     popular = sorted(videos[1:], key=lambda v: v["views"], reverse=True)[:POPULAR_COUNT]
 
-    block = build_block(new, popular)
+    block = build_block(new, popular, catalog=videos)
     updated = START.sub(lambda m: m.group(1) + block + m.group(3), page, count=1)
     if updated == page:
         print("Изменений нет.")

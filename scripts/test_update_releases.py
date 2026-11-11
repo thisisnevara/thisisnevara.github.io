@@ -122,7 +122,7 @@ class UpdateTests(unittest.TestCase):
         self.assertNotIn("СТАРЫЙ БЛОК", page)
         new_block = page.split('<p class="subhead"')[0]
         self.assertIn("v=qUbkpldW_Z0", new_block)                      # самое новое — BAMBOLEO
-        grid = page.split('class="release-grid"')[1]
+        grid = page.split('class="release-grid"')[1].split('<details class="catalog">')[0]
         order = [vid for vid in ("ZVjUQYGsI4c", "hVZ7I8PLAbE", "C6ynOt9dk1M", "GuD_Mh0cCrA")]
         positions = [grid.index(v) for v in order]
         self.assertEqual(positions, sorted(positions))                   # по убыванию просмотров
@@ -142,6 +142,32 @@ class UpdateTests(unittest.TestCase):
         new_block = page.split('<p class="subhead"')[0]
         self.assertIn('<p class="sub">Versión en Español</p>', new_block)
         self.assertIn('<span class="tag">Latin Pop 2026</span>', new_block)
+
+    def test_catalog_lists_all_songs_newest_first(self):
+        page = self.run_with(FakeYouTube())
+        self.assertEqual(page.count('<details class="catalog">'), 1)
+        catalog = page.split('<details class="catalog">')[1].split('</details>')[0]
+        self.assertIn('<span class="count">5</span>', catalog)
+        order = ["qUbkpldW_Z0", "hVZ7I8PLAbE", "C6ynOt9dk1M", "GuD_Mh0cCrA", "ZVjUQYGsI4c"]   # по дате, новые сверху
+        positions = [catalog.index(v) for v in order]
+        self.assertEqual(positions, sorted(positions))
+        self.assertNotIn("SHORTS00001", catalog)
+        self.assertNotIn("PREMIERE001", catalog)
+        self.assertIn('<time datetime="2026-11-08">11.2026</time>', catalog)
+
+    def test_catalog_keeps_versions_apart_and_full_title(self):
+        page = self.run_with(FakeYouTube())
+        catalog = page.split('<details class="catalog">')[1]
+        self.assertIn('<span class="c-name">BAMBOLEO</span><span class="c-sub"><span>Versión en Español</span> · <span>Latin Pop 2026</span></span>', catalog)
+        self.assertIn('title="Nevara — BAMBOLEO | Versión en Español | Latin Pop 2026"', catalog)
+
+    def test_catalog_escapes_titles(self):
+        videos = [("AAAAAAAAAAA", 'Nevara — "Песня" <b>', "2026-11-08T10:00:00Z", 1, "PT3M", "none"),
+                  ("BBBBBBBBBBB", "Nevara — Другая", "2026-10-08T10:00:00Z", 1, "PT3M", "none")]
+        page = self.run_with(FakeYouTube(videos=videos))
+        catalog = page.split('<details class="catalog">')[1]
+        self.assertNotIn("<b>", catalog)
+        self.assertIn('title="Nevara — &quot;Песня&quot; &lt;b&gt;"', catalog)
 
     def test_shorts_and_premieres_excluded(self):
         for uulf in (True, False):
