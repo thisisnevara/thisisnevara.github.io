@@ -1,0 +1,12 @@
+# Dependabot раз в неделю проверяет, не вышли ли новые версии,
+# и сам предлагает обновление (вкладка Pull requests). Принять — кнопка Merge.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "pip"
+    directory: "/scripts"
+    schedule:
+      interval: "weekly"
