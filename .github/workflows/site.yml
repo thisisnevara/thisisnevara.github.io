@@ -2,7 +2,8 @@
 # Запускается: раз в день, при каждой загрузке файлов в main и вручную (Actions → Run workflow).
 #
 # Если обновление песен не удалось, сайт всё равно публикуется в последней рабочей версии,
-# а запуск в конце помечается красным крестиком — GitHub пришлёт письмо, ошибка не пройдёт незамеченной.
+# а запуск в конце помечается красным крестиком во вкладке Actions. Письмо об этом GitHub
+# присылает, если в настройках уведомлений включены письма об упавших запусках Actions.
 name: Update and deploy site
 
 on:
@@ -77,15 +78,28 @@ jobs:
           fi
 
           # Отправляем, если есть что; перед этим подтягиваем возможные ручные изменения.
-          # При конфликте (вы правили index.html в ту же минуту) ничего не ломаем:
-          # отменяем объединение, сайт публикуется, сохранение повторится завтра.
+          # До 3 попыток: между pull и push кто-то может успеть загрузить новые файлы.
+          # При конфликте (вы правили index.html в ту же минуту) автообновление отбрасывается,
+          # а сайт собирается из актуальной версии main — с вашей правкой.
+          # Песни обновятся при следующем запуске.
           if [ -n "$(git log origin/main..HEAD --oneline)" ]; then
-            if git pull --rebase origin main; then
-              git push origin HEAD:main
-            else
-              git rebase --abort
-              echo "saved=false" >> "$GITHUB_OUTPUT"
-              echo "::warning title=Изменения не сохранены::Конфликт с ручной правкой index.html. Сайт опубликован, сохранение повторится при следующем запуске."
+            pushed=false
+            for attempt in 1 2 3; do
+              if ! git pull --rebase origin main; then
+                git rebase --abort
+                git reset --hard origin/main
+                echo "saved=false" >> "$GITHUB_OUTPUT"
+                echo "::warning title=Автообновление отложено::Конфликт с ручной правкой index.html. Сайт будет опубликован из актуальной версии main, песни обновятся при следующем запуске."
+                pushed=skip
+                break
+              fi
+              if git push origin HEAD:main; then pushed=true; break; fi
+              echo "Попытка $attempt: main изменился во время отправки, повторяю…"
+              sleep 5
+            done
+            if [ "$pushed" = false ]; then
+              echo "::error title=Изменения не сохранены::Не удалось отправить изменения за 3 попытки."
+              exit 1    # не публикуем то, чего нет в main
             fi
           fi
 
@@ -126,7 +140,7 @@ jobs:
         uses: actions/deploy-pages@v5
 
   # Сайт уже опубликован. Этот шаг только делает запуск красным, если что-то пошло не так,
-  # чтобы GitHub прислал письмо.
+  # чтобы проблема была видна во вкладке Actions (и пришло письмо, если оно включено).
   status:
     needs: [build, deploy]
     if: always()
@@ -138,7 +152,7 @@ jobs:
           ok=true
           [ "${{ needs.build.outputs.tests }}" = "success" ] || { echo "::error::Тесты скрипта не прошли."; ok=false; }
           [ "${{ needs.build.outputs.update }}" = "success" ] || { echo "::error::Песни с YouTube не обновились."; ok=false; }
-          [ "${{ needs.build.outputs.saved }}" = "true" ] || { echo "::error::Изменения не сохранены из-за конфликта."; ok=false; }
+          [ "${{ needs.build.outputs.saved }}" = "true" ] || { echo "::error::Автообновление отложено из-за конфликта с ручной правкой."; ok=false; }
           [ "${{ needs.deploy.result }}" = "success" ] || { echo "::error::Сайт не опубликован."; ok=false; }
           $ok && echo "Всё в порядке."
           $ok
