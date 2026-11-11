@@ -9,10 +9,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# По умолчанию — только чтение. Каждый этап получает лишь те права, которые ему нужны.
 permissions:
-  contents: write
-  pages: write
-  id-token: write
+  contents: read
 
 concurrency:
   group: pages
@@ -21,6 +20,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write          # сохранить обновлённый index.html в проект
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -30,8 +31,8 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install Pillow
-        run: python -m pip install --quiet pillow
+      - name: Install dependencies
+        run: python -m pip install --quiet -r scripts/requirements.txt
 
       - name: Update releases from YouTube
         id: update
@@ -41,25 +42,35 @@ jobs:
         run: python scripts/update_releases.py index.html
 
       - name: Save changes to the repository
-        if: steps.update.outcome == 'success'
         run: |
-          if git diff --quiet -- index.html; then
-            echo "Песни не изменились."
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Новые песни или порядок — сохраняем index.html
+          if [ "${{ steps.update.outcome }}" = "success" ] && ! git diff --quiet -- index.html; then
             git add index.html
             git commit -m "Автообновление: релиз и популярные треки"
-            git push
+          fi
+
+          # GitHub отключает расписание, если в проекте 60 дней не было изменений.
+          # Если последнее изменение старше 45 дней — оставляем служебную отметку.
+          last=$(git log -1 --format=%ct)
+          if [ $(( $(date +%s) - last )) -gt $(( 45 * 86400 )) ]; then
+            date -u +%F > .github/last-active.txt
+            git add .github/last-active.txt
+            git commit -m "Служебная отметка: расписание активно"
+          fi
+
+          # Отправляем, если есть что; перед этим подтягиваем возможные ручные изменения
+          if [ -n "$(git log origin/main..HEAD --oneline)" ]; then
+            git pull --rebase origin main
+            git push origin HEAD:main
           fi
 
       - name: Collect site files
         run: |
           mkdir _site
           cp index.html favicon.svg nevara-og.jpg CNAME _site/
-
-      - name: Configure Pages
-        uses: actions/configure-pages@v6
 
       - name: Upload site
         uses: actions/upload-pages-artifact@v5
@@ -69,6 +80,9 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write             # опубликовать сайт
+      id-token: write          # подтвердить, что публикует именно этот проект
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
