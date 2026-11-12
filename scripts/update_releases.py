@@ -4,7 +4,8 @@
 Берёт полноценные видео канала (без Shorts) через YouTube Data API v3:
   - самое новое видео  -> блок «Новый релиз»;
   - остальные           -> «Популярные треки», по убыванию просмотров (4 шт.).
-Обложки скачиваются, обрезаются до 16:9 и вшиваются в index.html (WebP),
+Обложки скачиваются, обрезаются до 16:9 и сохраняются файлами в папку covers/ рядом с index.html
+(WebP, грузятся на странице лениво, только когда до них долистали),
 поэтому сайт показывает их даже без доступа к YouTube.
 
 Если что-то пошло не так, index.html не меняется и скрипт завершается с ошибкой:
@@ -12,7 +13,7 @@
 
 Запуск: YOUTUBE_API_KEY=... python scripts/update_releases.py [путь к index.html]
 """
-import base64
+import hashlib
 import html
 import io
 import json
@@ -139,7 +140,9 @@ def split_title(raw):
 
 
 # ---------- обложки ----------
-def thumb_data_uri(thumbs, width):
+def make_cover(thumbs, width, vid, store):
+    """Скачивает обложку, сохраняет её в store (имя файла -> байты) и возвращает путь для страницы.
+    Сами файлы записываются на диск только в main(), когда всё остальное получилось."""
     from PIL import Image
 
     for key in ("maxres", "standard", "high", "medium"):
@@ -159,7 +162,10 @@ def thumb_data_uri(thumbs, width):
             im = im.resize((width, round(im.height * width / im.width)), Image.LANCZOS)
         buf = io.BytesIO()
         im.save(buf, "WEBP", quality=72, method=6)
-        return "data:image/webp;base64," + base64.b64encode(buf.getvalue()).decode()
+        data = buf.getvalue()
+        name = f"covers/{vid}-{width}-{hashlib.sha256(data).hexdigest()[:6]}.webp"
+        store[name] = data
+        return name
     # Не публикуем карточку без обложки: лучше оставить прошлую версию блока
     raise UpdateError("не удалось скачать обложку ни в одном размере; сайт не меняю")
 
@@ -185,10 +191,11 @@ def is_recent(published, now=None):
     return now - dt <= timedelta(days=NEW_FOR_DAYS)
 
 
-def build_block(new, popular, indent="      ", now=None, catalog=()):
+def build_block(new, popular, indent="      ", now=None, catalog=(), store=None):
+    store = {} if store is None else store
     title, sub = split_title(new["title"])
-    img = thumb_data_uri(new["thumbs"], 800)
-    cover = f'<img src="{img}" alt="{esc("Nevara — " + title)}">'
+    img = make_cover(new["thumbs"], 800, new["id"], store)
+    cover = f'<img src="{img}" alt="{esc("Nevara — " + title)}" loading="lazy" decoding="async">'
     badge = ('<span class="badge" data-i18n="new">НОВЫЙ РЕЛИЗ</span>' if is_recent(new["published"], now)
              else '<span class="badge" data-i18n="latest">ПОСЛЕДНИЙ РЕЛИЗ</span>')
     vid = esc(new["id"])
@@ -218,7 +225,7 @@ def build_block(new, popular, indent="      ", now=None, catalog=()):
     ]
     for n, v in enumerate(popular, 1):
         name, _ = split_title(v["title"])
-        img = thumb_data_uri(v["thumbs"], 480)
+        img = make_cover(v["thumbs"], 480, v["id"], store)
         cover = f'<img src="{img}" alt="" loading="lazy">'
         grad = GRADIENTS[(n - 1) % len(GRADIENTS)]
         out.append(
@@ -266,6 +273,16 @@ def build_catalog(videos):
     return out
 
 
+def write_atomic(path, data):
+    """Сначала во временный файл рядом, потом мгновенная замена: файл никогда не остаётся наполовину записанным."""
+    tmp = path + ".tmp"
+    with open(tmp, "wb") as f:
+        f.write(data)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, path)
+
+
 def main(path):
     if not os.environ.get("YOUTUBE_API_KEY"):
         raise UpdateError("не задан YOUTUBE_API_KEY (секрет в настройках GitHub)")
@@ -279,19 +296,28 @@ def main(path):
     new = videos[0]
     popular = sorted(videos[1:], key=lambda v: v["views"], reverse=True)[:POPULAR_COUNT]
 
-    block = build_block(new, popular, catalog=videos)
+    store = {}
+    block = build_block(new, popular, catalog=videos, store=store)
     updated = START.sub(lambda m: m.group(1) + block + m.group(3), page, count=1)
-    if updated == page:
+
+    root = os.path.dirname(os.path.abspath(path))
+    covers_dir = os.path.join(root, "covers")
+    missing = [n for n in store if not os.path.exists(os.path.join(root, n))]
+    if updated == page and not missing:
         print("Изменений нет.")
         return
-    # Атомарная запись: сначала во временный файл рядом, потом мгновенная замена.
-    # Если процесс прервётся посередине, index.html останется целым.
-    tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        f.write(updated)
-        f.flush()
-        os.fsync(f.fileno())
-    os.replace(tmp, path)
+
+    # 1) Сначала новые обложки (старые пока не трогаем — страница на них ещё ссылается)
+    os.makedirs(covers_dir, exist_ok=True)
+    for name, data in store.items():
+        write_atomic(os.path.join(root, name), data)
+    # 2) Потом страница — атомарно: при обрыве index.html останется целым
+    write_atomic(path, updated.encode("utf-8"))
+    # 3) И только теперь убираем обложки, на которые страница больше не ссылается
+    keep = {os.path.basename(n) for n in store}
+    for f in os.listdir(covers_dir):
+        if f.endswith(".webp") and f not in keep:
+            os.remove(os.path.join(covers_dir, f))
     print(f"Новый релиз: {split_title(new['title'])[0]} ({new['id']})")
     for n, v in enumerate(popular, 1):
         print(f"  {n}. {split_title(v['title'])[0]} — {v['views']} просмотров")

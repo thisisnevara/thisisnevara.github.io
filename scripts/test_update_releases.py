@@ -4,6 +4,7 @@
 """
 import io
 import json
+import re
 import os
 import shutil
 import sys
@@ -178,10 +179,33 @@ class UpdateTests(unittest.TestCase):
                 self.assertNotIn("SHORTS00001", page)
                 self.assertNotIn("PREMIERE001", page)
 
-    def test_covers_embedded_and_cropped(self):
+    def test_covers_saved_as_files_and_cropped(self):
+        from PIL import Image
         page = self.run_with(FakeYouTube())
-        self.assertEqual(page.count("data:image/webp;base64,"), 5)
+        self.assertNotIn("data:image", page)
         self.assertNotIn("i.ytimg.com", page)
+        names = re.findall(r'src="(covers/[^"]+\.webp)"', page)
+        self.assertEqual(len(names), 5)
+        for n in names:
+            path = os.path.join(self.dir, n)
+            self.assertTrue(os.path.exists(path), n)
+            w, h = Image.open(path).size
+            self.assertAlmostEqual(w / h, 16 / 9, delta=0.02)            # чёрные полосы 4:3 обрезаны
+        self.assertIn('loading="lazy"', page)
+
+    def test_stale_covers_removed_only_after_success(self):
+        os.makedirs(os.path.join(self.dir, "covers"))
+        old = os.path.join(self.dir, "covers", "OLDVIDEO001-480-abcdef.webp")
+        open(old, "wb").write(b"old")
+        upd.http_get = FakeYouTube(broken_thumbs=True)               # сбой: старое не трогаем
+        with self.assertRaises(upd.UpdateError):
+            upd.main(self.path)
+        self.assertTrue(os.path.exists(old))
+        self.assertEqual(self.page(), PAGE)
+        self.run_with(FakeYouTube())                                     # успех: старое убрано
+        self.assertFalse(os.path.exists(old))
+        self.assertEqual(len(os.listdir(os.path.join(self.dir, "covers"))), 5)
+
 
     def test_titles_are_escaped(self):
         videos = [("AAAAAAAAAAA", 'Nevara — <script>alert(1)</script>', "2026-11-08T10:00:00Z", 1, "PT3M", "none"),
@@ -236,7 +260,8 @@ class UpdateTests(unittest.TestCase):
 
     def test_atomic_write_leaves_no_temp_file(self):
         self.run_with(FakeYouTube())
-        self.assertEqual(sorted(os.listdir(self.dir)), ["index.html"])
+        self.assertEqual(sorted(os.listdir(self.dir)), ["covers", "index.html"])
+        self.assertFalse([f for f in os.listdir(os.path.join(self.dir, "covers")) if not f.endswith(".webp")])
 
     def test_interrupted_write_keeps_page(self):
         real_replace = os.replace
