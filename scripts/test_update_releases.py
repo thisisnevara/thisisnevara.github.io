@@ -44,8 +44,9 @@ def jpeg(letterbox):
 
 
 class FakeYouTube:
-    def __init__(self, videos=VIDEOS, uulf=True, api_error=None, broken_thumbs=False):
+    def __init__(self, videos=VIDEOS, uulf=True, api_error=None, broken_thumbs=False, privacy=None):
         self.videos, self.uulf, self.api_error, self.broken_thumbs = videos, uulf, api_error, broken_thumbs
+        self.privacy = privacy or {}     # id -> "private" | "unlisted"
 
     def __call__(self, url):
         if url.startswith("thumb:"):
@@ -64,11 +65,13 @@ class FakeYouTube:
                 items = [v for v in self.videos if v[4] != "PT0M30S"]
             else:
                 items = self.videos
+            # как у настоящего YouTube: закрытые видео по общему ключу не видны
+            items = [v for v in items if self.privacy.get(v[0]) != "private"]
             return json.dumps({"items": [{"contentDetails": {"videoId": v[0]}} for v in items]}).encode()
         ids = q["id"][0].split(",")
         out = []
         for n, v in enumerate(self.videos):
-            if v[0] in ids:
+            if v[0] in ids and self.privacy.get(v[0]) != "private":
                 thumbs = {"high": {"url": f"thumb:{n}:high"}}
                 if n % 2 == 0:
                     thumbs["maxres"] = {"url": f"thumb:{n}:maxres"}
@@ -77,7 +80,7 @@ class FakeYouTube:
                                         "liveBroadcastContent": v[5], "thumbnails": thumbs},
                             "statistics": {"viewCount": str(v[3])},
                             "contentDetails": {"duration": v[4]},
-                            "status": {"privacyStatus": "public"}})
+                            "status": {"privacyStatus": self.privacy.get(v[0], "public")}})
         return json.dumps({"items": out}).encode()
 
 
@@ -169,6 +172,24 @@ class UpdateTests(unittest.TestCase):
         catalog = page.split('<details class="catalog">')[1]
         self.assertNotIn("<b>", catalog)
         self.assertIn('title="Nevara — &quot;Песня&quot; &lt;b&gt;"', catalog)
+
+    def test_only_public_videos_shown(self):
+        # новый релиз (BAMBOLEO) скрыт, одна песня «по ссылке» — обеих не должно быть нигде на сайте
+        page = self.run_with(FakeYouTube(privacy={"qUbkpldW_Z0": "private", "C6ynOt9dk1M": "unlisted"}))
+        self.assertNotIn("qUbkpldW_Z0", page)
+        self.assertNotIn("C6ynOt9dk1M", page)
+        new_block = page.split('<p class="subhead"')[0]
+        self.assertIn('data-video="hVZ7I8PLAbE"', new_block)              # новым стал следующий открытый
+        self.assertIn('<span class="count">3</span>', page)
+        covers = os.listdir(os.path.join(self.dir, "covers"))
+        self.assertFalse([c for c in covers if c.startswith(("qUbkpldW_Z0", "C6ynOt9dk1M"))])
+
+    def test_hidden_song_disappears_on_next_run(self):
+        self.run_with(FakeYouTube())
+        self.assertIn("C6ynOt9dk1M", self.page())
+        page = self.run_with(FakeYouTube(privacy={"C6ynOt9dk1M": "private"}))
+        self.assertNotIn("C6ynOt9dk1M", page)
+        self.assertFalse([c for c in os.listdir(os.path.join(self.dir, "covers")) if c.startswith("C6ynOt9dk1M")])
 
     def test_shorts_and_premieres_excluded(self):
         for uulf in (True, False):
