@@ -62,9 +62,9 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           echo "saved=true" >> "$GITHUB_OUTPUT"
 
-          # Новые песни или порядок — сохраняем index.html
-          if [ "${{ steps.update.outcome }}" = "success" ] && ! git diff --quiet -- index.html; then
-            git add index.html
+          # Новые песни или порядок — сохраняем index.html и обложки (covers/)
+          if [ "${{ steps.update.outcome }}" = "success" ] && [ -n "$(git status --porcelain -- index.html covers)" ]; then
+            git add -A -- index.html covers
             git commit -m "Автообновление: релиз и популярные треки"
           fi
 
@@ -115,10 +115,9 @@ jobs:
           echo "### ⚠️ Песни не обновлены" >> "$GITHUB_STEP_SUMMARY"
           echo "$msg" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Collect site files
-        run: |
-          mkdir _site
-          cp index.html favicon.svg nevara-og.jpg CNAME _site/
+      - name: Build site
+        # фото фона из images/hero.jpg → версии для телефона/компьютера и превью; при ошибке сайт не публикуется
+        run: python scripts/build_site.py . _site
 
       - name: Upload site
         uses: actions/upload-pages-artifact@v5
