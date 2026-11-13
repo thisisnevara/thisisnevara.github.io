@@ -403,6 +403,8 @@ function openCatalog(){
   if(location.hash!=="#all-songs")return;
   const d=document.getElementById("all-songs");
   if(d){d.open=true;d.scrollIntoView({block:"start"})}
+  /* убираем #all-songs из адреса: при обновлении страницы список снова не навязывается */
+  try{history.replaceState(null,"",location.pathname+location.search)}catch(e){}
 }
 openCatalog();window.addEventListener("hashchange",openCatalog);
 try{const s=localStorage.getItem("nevara-lang");if(s&&T[s])setLang(s)}catch(e){}
