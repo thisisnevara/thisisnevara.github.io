@@ -102,15 +102,12 @@ def clean_lyrics(text, name=""):
             continue
         line = INLINE_TAG.sub(" ", raw).strip()
         lines.append(line)
-    # убрать заголовок вида «Пароль:» / «Два мира» в начале. Заголовок — это строка с названием,
-    # которая кончается двоеточием или стоит отдельно (после неё пустая строка). Если же строка
-    # с названием сразу продолжается текстом («Ven para mí… / Ты слышишь, как сердце»), это пропетая строка.
+    # Убираем только явно обозначенный заголовок: название песни с двоеточием в первой строке («Пароль:»).
+    # Строка с названием без двоеточия — это пропетая строка («Ven para mí…», «Бам-болео…»), её не трогаем.
     while lines and not lines[0]:
         lines.pop(0)
-    if lines and name and _norm(lines[0].rstrip(":")) == _norm(name):
-        alone = len(lines) == 1 or not lines[1]
-        if lines[0].endswith(":") or alone:
-            lines.pop(0)
+    if lines and name and lines[0].endswith(":") and _norm(lines[0].rstrip(":")) == _norm(name):
+        lines.pop(0)
     stanzas, cur = [], []
     for line in lines + [""]:
         if line:

@@ -337,7 +337,9 @@ class TitleLineTests(unittest.TestCase):
 
     def test_heading_line_is_removed(self):
         import build_site as b
-        self.assertEqual(b.clean_lyrics("Два мира\n\nПервая строка\n", "ДВА МИРА"), [["Первая строка"]])
+        self.assertEqual(b.clean_lyrics("Два мира:\n\nПервая строка\n", "ДВА МИРА"), [["Первая строка"]])
+        # без двоеточия — это строка песни, даже если после неё пустая строка
+        self.assertEqual(b.clean_lyrics("Два мира\n\nПервая строка\n", "ДВА МИРА"), [["Два мира"], ["Первая строка"]])
         self.assertEqual(b.clean_lyrics("Пароль:\nПервая строка\n", "ПАРОЛЬ"), [["Первая строка"]])
 
 
