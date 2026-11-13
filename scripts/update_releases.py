@@ -120,6 +120,7 @@ def fetch_videos():
                 "published": sn.get("publishedAt", ""),
                 "views": int(st.get("viewCount", 0) or 0),
                 "description": sn.get("description", ""),
+                "duration": v.get("contentDetails", {}).get("duration", ""),
                 "thumbs": sn.get("thumbnails", {}),
             })
     if len(videos) < 2:
@@ -339,6 +340,13 @@ def build_block(new, popular, indent="      ", now=None, catalog=(), store=None)
     return "\n".join(indent + line for line in out)
 
 
+def catalog_genre(title):
+    """Жанр без года: «… | Latin Pop 2026» -> «Latin Pop»."""
+    sub = split_title(title)[1]
+    parts = sub.split(" · ") if sub else []
+    return re.sub(r"\s+(?:19|20)\d{2}$", "", parts[1]).strip() if len(parts) > 1 else ""
+
+
 def build_catalog(videos):
     """Раскрывающийся список всех песен: новые сверху, без обложек.
     Полное исходное название видео — в подсказке (title), на случай ошибки сокращения."""
@@ -349,8 +357,22 @@ def build_catalog(videos):
     out = [
         '<details class="catalog" id="all-songs">',
         f'  <summary><span data-i18n="catalog">Все песни Nevara</span><span class="count">{len(videos)}</span>{chevron}</summary>',
-        '  <ol class="catalog-list">',
     ]
+    # Фильтр по жанру: кнопки «Все · Latin Pop · Reggaeton …» (если жанров хотя бы два)
+    genre_of = {v["id"]: catalog_genre(v["title"]) for v in videos}
+    counts = {}
+    for g in genre_of.values():
+        if g:
+            counts[g] = counts.get(g, 0) + 1
+    if len(counts) >= 2:
+        out.append('  <div class="c-filter" role="group" aria-label="Жанр" data-i18n-label="genre">')
+        out.append(f'    <button type="button" data-genre="" aria-pressed="true"><span data-i18n="all-genres">Все</span>'
+                   f'<span class="n">{len(videos)}</span></button>')
+        for g, n in sorted(counts.items(), key=lambda x: (-x[1], x[0].lower())):
+            out.append(f'    <button type="button" data-genre="{esc(g.lower())}" aria-pressed="false">{esc(g)}'
+                       f'<span class="n">{n}</span></button>')
+        out.append('  </div>')
+    out.append('  <ol class="catalog-list">')
     for v in videos:
         name, sub = split_title(v["title"])
         day = v["published"][:10]
@@ -365,7 +387,7 @@ def build_catalog(videos):
 
         when = f'<time datetime="{esc(day)}">{shown}</time>' if shown else ""
         out.append(
-            f'    <li><a href="{esc(v.get("slug", ""))}/" data-id="{esc(v["id"])}" title="{esc(v["title"])}">'
+            f'    <li data-genre="{esc(genre_of[v["id"]].lower())}"><a href="{esc(v.get("slug", ""))}/" data-id="{esc(v["id"])}" title="{esc(v["title"])}">'
             f'<span class="c-text"><span class="c-name">{esc(name)}</span>{sub_html}</span>'
             f'{when}<span class="c-arrow" aria-hidden="true">→</span></a></li>'
         )
@@ -450,6 +472,8 @@ def main(path):
             "name": name,
             "sub": sub.split(" · ") if sub else [],
             "published": v["published"][:10],
+            "uploaded": v["published"],                       # полная дата-время — для данных о видео в Google
+            "duration": v.get("duration", ""),
             "views": v["views"],
             "description": clean_description(v.get("description", "")),
             "cover": cover,

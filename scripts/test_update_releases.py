@@ -242,6 +242,21 @@ class UpdateTests(unittest.TestCase):
         for s in songs:
             self.assertTrue(s["cover"] and os.path.exists(os.path.join(self.dir, s["cover"])), s["id"])
 
+    def test_catalog_genre_filter(self):
+        page = self.run_with(FakeYouTube(videos=EXTRA))
+        self.assertIn('<div class="c-filter"', page)
+        self.assertIn('data-genre="" aria-pressed="true"', page)
+        self.assertRegex(page, r'data-genre="reggaeton" aria-pressed="false">Reggaeton<span class="n">\d+</span>')
+        self.assertRegex(page, r'<li data-genre="reggaeton"><a href="kod-dostupa/"')
+        self.assertEqual(upd.catalog_genre("Nevara — X | строка | Latin Pop 2026"), "Latin Pop")
+        self.assertEqual(upd.catalog_genre("Nevara — X"), "")
+
+    def test_song_data_has_full_upload_time_and_duration(self):
+        self.run_with(FakeYouTube())
+        s = self.songs()[0]
+        self.assertRegex(s["uploaded"], r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
+        self.assertTrue(s["duration"].startswith("PT"))
+
     def test_page_cover_falls_back_to_previous_then_to_none(self):
         self.run_with(FakeYouTube(videos=EXTRA))
         before = {s["id"]: s["cover"] for s in self.songs()}

@@ -1,6 +1,7 @@
 """Тесты сборки сайта. Запуск: python -m unittest discover -s scripts -v"""
 import json
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -13,7 +14,7 @@ INDEX = """<html><head>
 <meta property="og:image" content="{{OG_IMAGE}}">
 {{HERO_PRELOAD}}
 <style>.hero{--photo-w:{{PHOTO_W}};--photo-c:{{PHOTO_C}}}</style></head>
-<body><img class="photo" src="{{HERO_SRC}}" srcset="{{HERO_SRCSET}}" sizes="{{HERO_SIZES}}"></body></html>"""
+<body><img class="photo" src="{{HERO_SRC}}" srcset="{{HERO_SRCSET}}" sizes="{{HERO_SIZES}}">{{ANALYTICS}}</body></html>"""
 
 
 class BuildTests(unittest.TestCase):
@@ -110,7 +111,7 @@ SONG_TPL = """<html><head><title>{{PAGE_TITLE}}</title><meta name="description" 
 <link rel="canonical" href="{{CANONICAL}}"><meta property="og:image" content="{{OG_IMAGE}}">
 <script type="application/ld+json">{{JSONLD}}</script></head><body>{{BACKDROP}}
 <div class="cover" data-video="{{VIDEO_ID}}">{{COVER_IMG}}</div><h1>{{NAME}}</h1>{{LINE}}{{VERSIONS}}{{JUMP}}
-<p>{{TAGS}}<time datetime="{{DATE}}">{{DATE_SHOWN}}</time></p>{{ABOUT}}{{LYRICS}}<ul>{{OTHERS}}</ul></body></html>"""
+<p>{{TAGS}}<time datetime="{{DATE}}">{{DATE_SHOWN}}</time></p>{{ABOUT}}{{LYRICS}}<ul>{{OTHERS}}</ul>{{ANALYTICS}}</body></html>"""
 
 LYRICS = """Пароль:
 [Verse 1]
@@ -167,15 +168,50 @@ class SongPageTests(unittest.TestCase):
         self.assertNotIn('href="#lyrics"', p)            # и ссылки на текст тоже
         self.assertNotIn("<img src=\"../covers", p)      # нейтральный фон вместо обложки
         self.assertIn("nevara-og.jpg?v=", p)             # превью для соцсетей — общая картинка сайта
-        self.assertIn("· клип</title>", p)
+        self.assertIn("· слушать песню</title>", p)
         self.assertIn('href="#lyrics"', self.page("parol"))
+
+    def test_analytics_only_with_code_file(self):
+        self.write("404.html", "<html><head><meta name=robots content=noindex></head><body>404{{ANALYTICS}}</body></html>")
+        bs.build(self.root, self.out)
+        for name in ("index.html", "parol/index.html", "404.html"):
+            with open(os.path.join(self.out, name), encoding="utf-8") as f:
+                self.assertNotIn("umami", f.read(), name)
+        wid = "1a2b3c4d-1a2b-4a2b-8a2b-1a2b3c4d5e6f"
+        self.write("umami.txt", wid.upper() + "\n")
+        bs.build(self.root, self.out)
+        for name in ("index.html", "parol/index.html", "404.html"):
+            with open(os.path.join(self.out, name), encoding="utf-8") as f:
+                p = f.read()
+            self.assertIn(f'data-website-id="{wid}"', p, name)
+            self.assertIn('data-domains="thisisnevara.com"', p, name)
+            self.assertIn('"Слушать"', p, name)
+        self.write("umami.txt", 'nevara"><script>')
+        with self.assertRaises(bs.BuildError):
+            bs.build(self.root, self.out)
+
+    def test_video_data_for_google(self):
+        self.songs[0]["uploaded"] = "2026-04-29T15:00:05Z"
+        self.songs[0]["duration"] = "PT3M20S"
+        self.write("data/songs.json", json.dumps({"songs": self.songs}, ensure_ascii=False))
+        bs.build(self.root, self.out)
+        p = self.page("parol")
+        ld = json.loads(re.search(r'<script type="application/ld\+json">(.*?)</script>', p, re.S).group(1))
+        rec, video = ld["@graph"]
+        self.assertEqual(rec["@type"], "MusicRecording")
+        self.assertEqual(rec["video"]["@id"], video["@id"])
+        self.assertEqual(video["@type"], "VideoObject")
+        self.assertEqual(video["uploadDate"], "2026-04-29T15:00:05Z")
+        self.assertEqual(video["duration"], "PT3M20S")
+        self.assertEqual(video["embedUrl"], "https://www.youtube.com/embed/C6ynOt9dk1M")
+        self.assertTrue(video["thumbnailUrl"][0].startswith("https://thisisnevara.com/covers/"))
 
     def test_pages_for_every_song(self):
         bs.build(self.root, self.out)
         for s in self.songs:
             self.assertNotIn("{{", self.page(s["slug"]))
         p = self.page("parol")
-        self.assertIn("<title>Пароль — Nevara · текст песни и клип</title>", p)
+        self.assertIn("<title>Пароль — Nevara · текст песни</title>", p)
         self.assertIn('data-video="C6ynOt9dk1M"', p)
         self.assertIn("Песня о ночном танце.", p)
         self.assertIn('<span class="tag">Reggaeton</span>', p)
@@ -195,7 +231,7 @@ class SongPageTests(unittest.TestCase):
         p = self.page("na-maksimum")
         self.assertNotIn('class="lyrics"', p)
         self.assertNotIn('data-i18n="about"', p)
-        self.assertIn("<title>На максимум — Nevara · клип</title>", p)
+        self.assertIn("<title>На максимум — Nevara · слушать песню</title>", p)
         self.assertNotIn('<img src="../img/', p)                                 # без обложки — только свечение из CSS
         self.assertNotIn("читайте текст", p)                                     # не обещаем текст, которого нет
 

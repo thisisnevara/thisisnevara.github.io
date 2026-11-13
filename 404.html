@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Страница «не найдено». GitHub Pages показывает её для любого несуществующего адреса. -->
+<title>Страница не найдена — Nevara</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#07070f">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;900&family=Manrope:wght@400;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;900&family=Manrope:wght@400;700&display=swap" rel="stylesheet"></noscript>
+<style>
+:root{
+  --night:#07070f;--ink:#f3eefa;--muted:#a59fb8;--neon:#ff2e88;--neon-btn:#d9126a;--sodium:#ffb547;--line:#2a2740;
+  --display:"Unbounded","Arial Black",system-ui,sans-serif;--body:"Manrope","Segoe UI",system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0}
+html,body{min-height:100%}
+body{min-height:100vh;display:flex;flex-direction:column;background:var(--night);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased;
+  background-image:radial-gradient(60% 50% at 25% 15%,rgba(217,18,106,.30),transparent 70%),radial-gradient(50% 45% at 85% 10%,rgba(110,40,170,.32),transparent 70%)}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--sodium);outline-offset:3px;border-radius:4px}
+header{padding:18px clamp(16px,5vw,56px)}
+.logo{font-family:var(--display);font-weight:900;letter-spacing:.18em;font-size:15px;text-decoration:none;display:inline-block;padding:12px 0}
+main{flex:1;display:flex;flex-direction:column;justify-content:center;padding:24px clamp(16px,5vw,56px) 64px;max-width:760px}
+.code{font-family:var(--display);font-weight:900;font-size:clamp(72px,18vw,150px);line-height:1;color:var(--neon);text-shadow:0 0 40px rgba(255,46,136,.45)}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(24px,5vw,38px);line-height:1.15;margin:18px 0 12px}
+p{color:var(--muted);max-width:34em}
+.actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:28px}
+.btn{display:inline-flex;align-items:center;font:700 15px/1 var(--body);text-decoration:none;padding:15px 20px;border-radius:12px;border:1px solid var(--line);background:rgba(18,18,31,.75)}
+.btn.primary{background:var(--neon-btn);border-color:var(--neon-btn);color:#fff;box-shadow:0 0 24px rgba(255,46,136,.45)}
+@media (hover:hover){.btn{transition:transform .2s}.btn:hover{transform:translateY(-2px)}}
+@media (prefers-reduced-motion:reduce){.btn{transition:none}}
+</style>
+</head>
+<body>
+<header><a class="logo" href="/">NEVARA</a></header>
+<main>
+  <div class="code" aria-hidden="true">404</div>
+  <h1 data-i18n="title">Такой страницы нет</h1>
+  <p data-i18n="text">Возможно, в адресе опечатка или песня переехала. Все песни Nevara — в одном списке.</p>
+  <div class="actions">
+    <a class="btn primary" href="/#all-songs" data-i18n="all">Все песни Nevara</a>
+    <a class="btn" href="/" data-i18n="home">На главную</a>
+  </div>
+</main>
+<script>
+(function(){
+  const T={
+    ru:{title:"Такой страницы нет",text:"Возможно, в адресе опечатка или песня переехала. Все песни Nevara — в одном списке.",all:"Все песни Nevara",home:"На главную",doc:"Страница не найдена — Nevara"},
+    es:{title:"Esta página no existe",text:"Quizá hay un error en la dirección o la canción se ha movido. Todas las canciones de Nevara están en una lista.",all:"Todas las canciones",home:"Inicio",doc:"Página no encontrada — Nevara"},
+    en:{title:"This page doesn’t exist",text:"There may be a typo in the address, or the song has moved. All Nevara songs are in one list.",all:"All Nevara songs",home:"Home",doc:"Page not found — Nevara"}
+  };
+  let l="ru";try{const s=localStorage.getItem("nevara-lang");if(s&&T[s])l=s}catch(e){}
+  document.documentElement.lang=l;document.title=T[l].doc;
+  document.querySelectorAll("[data-i18n]").forEach(el=>{const v=T[l][el.dataset.i18n];if(v)el.textContent=v});
+})();
+</script>
+{{ANALYTICS}}
+</body>
+</html>

@@ -29,6 +29,48 @@ import sys
 SITE_URL = "https://thisisnevara.com/"
 WIDTHS = (800, 1200, 1600)
 COPY = ("favicon.svg", "CNAME")
+UMAMI = "umami.txt"      # Website ID из Umami Cloud (вида 1a2b3c4d-…); нет файла — нет счётчика
+
+# Нажатия, которые считаем в Umami: «Слушать», «Поделиться», переходы на YouTube и подписка.
+# Ссылкам ставим data-umami-event (Umami сам дождётся отправки перед переходом),
+# кнопкам «Слушать»/«Поделиться» — umami.track() при нажатии.
+UMAMI_EVENTS = """<script>
+(function(){
+  function song(el){
+    var r=el.closest(".new-release");if(r){var h3=r.querySelector("h3");if(h3)return h3.textContent.trim()}
+    if(location.pathname!=="/"){var h1=document.querySelector("h1");if(h1)return h1.textContent.trim()}
+    return "";
+  }
+  function mark(a,name){a.setAttribute("data-umami-event",name);var s=song(a);if(s)a.setAttribute("data-umami-event-song",s)}
+  document.querySelectorAll('a[href*="youtube.com/"]').forEach(function(a){
+    var h=a.getAttribute("href");
+    if(h.indexOf("sub_confirmation")>-1)mark(a,"Подписка");
+    else if(h.indexOf("/watch")>-1)mark(a,"YouTube: песня");
+    else mark(a,"YouTube: канал");
+  });
+  document.addEventListener("click",function(e){
+    var b=e.target.closest(".play,.share");if(!b||!window.umami)return;
+    var s=song(b);
+    try{umami.track(b.classList.contains("play")?"Слушать":"Поделиться",s?{song:s}:undefined)}catch(err){}
+  },true);
+})();
+</script>"""
+
+
+def analytics_tag(root):
+    """Счётчик посещений Umami Cloud: без cookie, статистику видит только владелец аккаунта.
+    Считает только на настоящем домене — просмотры при локальной проверке не попадут в статистику."""
+    p = os.path.join(root, UMAMI)
+    if not os.path.exists(p):
+        return ""
+    with open(p, encoding="utf-8") as f:
+        code = f.read().strip().lower()
+    if not code:
+        return ""
+    if not re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", code):
+        raise BuildError(f"{UMAMI}: нужен Website ID из Umami вида 1a2b3c4d-1a2b-1a2b-1a2b-1a2b3c4d5e6f, а не {code!r}")
+    return (f'<script defer src="https://cloud.umami.is/script.js" data-website-id="{code}" '
+            f'data-domains="thisisnevara.com"></script>\n' + UMAMI_EVENTS)
 COPY_DIRS = ("covers",)
 PLACEHOLDER = re.compile(r"\{\{[A-Z_0-9]+\}\}")
 
@@ -160,6 +202,7 @@ def build(root, out):
         "{{OG_IMAGE}}": f"{SITE_URL}nevara-og.jpg?v={tag}",
         "{{PHOTO_W}}": f"{photo_w:.1f}vw",
         "{{PHOTO_C}}": f"{photo_c:.4f}",
+        "{{ANALYTICS}}": analytics_tag(root),
     }
     for key, val in values.items():
         page = page.replace(key, val)
@@ -169,7 +212,18 @@ def build(root, out):
     with open(os.path.join(tmp, "index.html"), "w", encoding="utf-8") as f:
         f.write(page)
 
-    pages = build_songs(root, tmp, og_fallback=f"{SITE_URL}nevara-og.jpg?v={tag}")
+    pages = build_songs(root, tmp, og_fallback=f"{SITE_URL}nevara-og.jpg?v={tag}",
+                        analytics=values["{{ANALYTICS}}"])
+
+    # Своя страница «не найдено» (GitHub Pages сам отдаёт её с кодом 404)
+    p404 = os.path.join(root, "404.html")
+    if os.path.exists(p404):
+        with open(p404, encoding="utf-8") as f:
+            nf = f.read().replace("{{ANALYTICS}}", values["{{ANALYTICS}}"])
+        if PLACEHOLDER.search(nf):
+            raise BuildError("в 404.html остались незаполненные метки")
+        with open(os.path.join(tmp, "404.html"), "w", encoding="utf-8") as f:
+            f.write(nf)
     write_sitemap(tmp, pages)
 
     for name in COPY:
@@ -254,7 +308,7 @@ def pick_others(s, songs, exclude=(), limit=6):
     return picks
 
 
-def build_songs(root, tmp, og_fallback=SITE_URL + "nevara-og.jpg"):
+def build_songs(root, tmp, og_fallback=SITE_URL + "nevara-og.jpg", analytics=""):
     """Страница для каждой песни из data/songs.json. Возвращает список (адрес, дата) для sitemap."""
     from PIL import Image, ImageFilter
 
@@ -330,10 +384,10 @@ def build_songs(root, tmp, og_fallback=SITE_URL + "nevara-og.jpg"):
             f'<span>{esc(o["sub"][0]) if o.get("sub") else ""}</span></a></li>' for o in others)
 
         nice = nice_name(name)
-        page_title = f"{nice} — Nevara · текст песни и клип" if has_lyrics else f"{nice} — Nevara · клип"
+        page_title = f"{nice} — Nevara · текст песни" if has_lyrics else f"{nice} — Nevara · слушать песню"
         meta = (s["description"][0] if s.get("description") else
                 f"«{nice}» — песня Nevara{(' (' + ', '.join(genres) + ')') if genres else ''}. "
-                + ("Слушайте и читайте текст песни." if has_lyrics else "Слушайте песню и смотрите клип."))
+                + ("Слушайте песню и читайте текст." if has_lyrics else "Слушайте песню на YouTube."))
         if len(meta) > 160:
             meta = meta[:157].rsplit(" ", 1)[0] + "…"
         url = f"{SITE_URL}{slug}/"
@@ -346,6 +400,18 @@ def build_songs(root, tmp, og_fallback=SITE_URL + "nevara-og.jpg"):
             "byArtist": {"@type": "MusicGroup", "name": "Nevara", "@id": f"{SITE_URL}#artist", "url": SITE_URL},
             "sameAs": [f"https://www.youtube.com/watch?v={vid}"],
         }
+        # Видео на YouTube (картинка + музыка) — для Google это тоже видео: даём его данные,
+        # чтобы страница могла показываться в поиске с превью и длительностью
+        uploaded = s.get("uploaded") or date
+        video = {
+            "@type": "VideoObject", "@id": url + "#video", "name": f"{nice} — Nevara",
+            "description": meta, "thumbnailUrl": [cover_url, f"https://i.ytimg.com/vi/{vid}/hqdefault.jpg"],
+            "uploadDate": uploaded, "embedUrl": f"https://www.youtube.com/embed/{vid}",
+            "url": f"https://www.youtube.com/watch?v={vid}",
+        }
+        if re.fullmatch(r"PT(?:\d+H)?(?:\d+M)?(?:\d+S)?", s.get("duration") or "") and s["duration"] != "PT":
+            video["duration"] = s["duration"]
+        ld["video"] = {"@id": url + "#video"}
         if has_lyrics:
             ld["recordingOf"] = {"@type": "MusicComposition", "name": nice,
                                  "lyrics": {"@type": "CreativeWork",
@@ -359,9 +425,11 @@ def build_songs(root, tmp, og_fallback=SITE_URL + "nevara-og.jpg"):
             "{{TAGS}}": "".join(f'<span class="tag">{esc(g)}</span>' for g in genres),
             "{{DATE}}": esc(date),
             "{{DATE_SHOWN}}": f"{date[8:10]}.{date[5:7]}.{date[:4]}" if len(date) == 10 else "",
-            "{{VERSIONS}}": versions, "{{JUMP}}": jump,
+            "{{VERSIONS}}": versions, "{{JUMP}}": jump, "{{ANALYTICS}}": analytics,
             "{{ABOUT}}": about, "{{LYRICS}}": lyrics_html, "{{OTHERS}}": others_html,
-            "{{JSONLD}}": json.dumps(ld, ensure_ascii=False).replace("</", "<\\/"),
+            "{{JSONLD}}": json.dumps({"@context": "https://schema.org", "@graph": [
+                {k: v for k, v in ld.items() if k != "@context"}, video]},
+                ensure_ascii=False).replace("</", "<\\/"),
         }
         page = template
         for key, val in values.items():
