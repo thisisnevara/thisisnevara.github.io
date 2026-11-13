@@ -209,7 +209,8 @@ class SongPageTests(unittest.TestCase):
         bs.build(self.root, self.out)
         with open(os.path.join(self.out, "sitemap.xml"), encoding="utf-8") as f:
             sm = f.read()
-        self.assertIn("<loc>https://thisisnevara.com/parol/</loc><lastmod>2026-04-29</lastmod>", sm)
+        self.assertIn("<url><loc>https://thisisnevara.com/parol/</loc></url>", sm)
+        self.assertNotIn("<lastmod>", sm)
         self.assertIn("https://thisisnevara.com/na-maksimum/", sm)
         with open(os.path.join(self.out, "robots.txt"), encoding="utf-8") as f:
             self.assertIn("Sitemap: https://thisisnevara.com/sitemap.xml", f.read())
@@ -272,6 +273,23 @@ class OthersTests(unittest.TestCase):
         picks = [o["slug"] for o in self.b.pick_others(self.songs[5], self.songs, exclude={"s6"})]
         self.assertNotIn("s6", picks)
         self.assertEqual(len(picks), 6)
+
+
+
+class StanzaLangTests(unittest.TestCase):
+    def test_only_latin_stanzas_marked_spanish(self):
+        import build_site as b
+        self.assertEqual(b.stanza_lang(["Ven para mí", "esta noche"]), ' lang="es"')
+        self.assertEqual(b.stanza_lang(["Этой ночью не уходи"]), "")
+        self.assertEqual(b.stanza_lang(["Ven para mí", "Этой ночью не уходи"]), "")
+        self.assertEqual(b.stanza_lang(["(oh-oh)"]), ' lang="es"')
+
+    def test_mixed_stanza_marks_spanish_lines(self):
+        import build_site as b
+        self.assertEqual(b.render_stanza(["Сердце стучит", "Ven para mí"]),
+                         '<p>Сердце стучит<br><span lang="es">Ven para mí</span></p>')
+        self.assertEqual(b.render_stanza(["Ven, ven para mí", "esta noche"]),
+                         '<p lang="es">Ven, ven para mí<br>esta noche</p>')
 
 
 if __name__ == "__main__":

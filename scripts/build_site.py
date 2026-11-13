@@ -194,6 +194,24 @@ def version_key(slug):
     return re.sub(r"-(?:espanol|spanish|russkiy|russian|ru|es)$", "", slug).replace("-", "")
 
 
+def is_spanish(text):
+    """Строка/куплет на латинице без кириллицы — считаем испанским (страница по умолчанию русская)."""
+    return bool(re.search("[a-zñáéíóúü]", text, re.I)) and not re.search("[а-яё]", text, re.I)
+
+
+def stanza_lang(lines):
+    return ' lang="es"' if is_spanish(" ".join(lines)) else ""
+
+
+def render_stanza(lines):
+    """Куплет целиком на испанском -> <p lang="es">; в смешанном помечаем испанские строки по одной
+    (например, припев «Ven para mí» внутри русского куплета)."""
+    if stanza_lang(lines):
+        return '<p lang="es">' + "<br>".join(esc(l) for l in lines) + "</p>"
+    return "<p>" + "<br>".join(f'<span lang="es">{esc(l)}</span>' if is_spanish(l) else esc(l)
+                               for l in lines) + "</p>"
+
+
 def song_lang(name):
     return "ru" if re.search("[а-яё]", name, re.I) else "es"
 
@@ -289,10 +307,9 @@ def build_songs(root, tmp, og_fallback=SITE_URL + "nevara-og.jpg"):
                 stanzas = clean_lyrics(f.read(), name)
             if stanzas:
                 has_lyrics = True
-                body = "".join("<p>" + "<br>".join(esc(l) for l in st) + "</p>" for st in stanzas)
-                lang = "es" if song_lang(name) == "es" else "ru"
+                body = "".join(render_stanza(st) for st in stanzas)
                 lyrics_html = (f'<section id="lyrics"><h2 data-i18n="lyrics">Текст песни</h2>'
-                               f'<div class="lyrics" lang="{lang}">{body}</div></section>')
+                               f'<div class="lyrics">{body}</div></section>')
 
         my_lang = song_lang(name)
         versions = "".join(
@@ -351,14 +368,15 @@ def build_songs(root, tmp, og_fallback=SITE_URL + "nevara-og.jpg"):
         os.makedirs(os.path.join(tmp, slug))
         with open(os.path.join(tmp, slug, "index.html"), "w", encoding="utf-8") as f:
             f.write(page)
-        pages.append((f"{slug}/", date))
+        pages.append(f"{slug}/")
     return pages
 
 
 def write_sitemap(tmp, pages):
     urls = [f"  <url><loc>{SITE_URL}</loc></url>"]
-    urls += [f"  <url><loc>{SITE_URL}{p}</loc>" + (f"<lastmod>{d}</lastmod>" if d else "") + "</url>"
-             for p, d in pages]
+    # Без <lastmod>: дата выхода видео — не дата изменения страницы (текст могли добавить позже),
+    # а неточная дата хуже, чем никакой
+    urls += [f"  <url><loc>{SITE_URL}{p}</loc></url>" for p in pages]
     with open(os.path.join(tmp, "sitemap.xml"), "w", encoding="utf-8") as f:
         f.write('<?xml version="1.0" encoding="UTF-8"?>\n'
                 '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + "\n".join(urls) + "\n</urlset>\n")

@@ -209,6 +209,26 @@ def clean_description(text, max_paragraphs=3):
 
 
 # ---------- обложки ----------
+COVERS_ROOT = None    # папка сайта; main() заполняет — для запасного варианта «прошлая обложка»
+
+
+def previous_cover(width, vid, store):
+    """Уже лежащая на сайте обложка этого видео в этом размере (с прошлых запусков) или None."""
+    if not COVERS_ROOT:
+        return None
+    folder = os.path.join(COVERS_ROOT, "covers")
+    try:
+        names = [n for n in os.listdir(folder) if re.fullmatch(rf"{re.escape(vid)}-{width}-[0-9a-f]{{6}}\.webp", n)]
+    except OSError:
+        return None
+    if not names:
+        return None
+    best = max(names, key=lambda n: os.path.getmtime(os.path.join(folder, n)))
+    with open(os.path.join(folder, best), "rb") as f:
+        store["covers/" + best] = f.read()
+    return "covers/" + best
+
+
 def make_cover(thumbs, width, vid, store):
     """Скачивает обложку, сохраняет её в store (имя файла -> байты) и возвращает путь для страницы.
     Сами файлы записываются на диск только в main(), когда всё остальное получилось."""
@@ -238,6 +258,11 @@ def make_cover(thumbs, width, vid, store):
         name = f"covers/{vid}-{width}-{hashlib.sha256(data).hexdigest()[:6]}.webp"
         store[name] = data
         return name
+    # YouTube не отдал картинку — берём ту, что уже есть на сайте с прошлых запусков
+    old = previous_cover(width, vid, store)
+    if old:
+        print(f"Обложка {vid} ({width}px) не скачалась — оставляю прошлую")
+        return old
     # Не публикуем карточку без обложки: лучше оставить прошлую версию блока
     raise UpdateError("не удалось скачать обложку ни в одном размере; сайт не меняю")
 
@@ -369,7 +394,9 @@ def main(path):
     new = videos[0]
     popular = sorted(videos[1:], key=lambda v: v["views"], reverse=True)[:POPULAR_COUNT]
 
+    global COVERS_ROOT
     root = os.path.dirname(os.path.abspath(path))
+    COVERS_ROOT = root
     data_path = os.path.join(root, "data", "songs.json")
     slugs_path = os.path.join(root, "data", "slugs.json")
     known, old_covers, old_json, old_slugs = {}, {}, None, None

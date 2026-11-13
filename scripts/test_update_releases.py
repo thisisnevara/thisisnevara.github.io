@@ -251,8 +251,19 @@ class UpdateTests(unittest.TestCase):
         self.assertEqual(after[last_id], before[last_id])
         self.assertTrue(os.path.exists(os.path.join(self.dir, after[last_id])))
         shutil.rmtree(os.path.join(self.dir, "data"))  # прошлой нет — страница без обложки, но обновление идёт
+        for n in os.listdir(os.path.join(self.dir, "covers")):
+            if n.startswith(last_id):
+                os.remove(os.path.join(self.dir, "covers", n))
         self.run_with(FakeYouTube(videos=EXTRA, broken_n={last}))
         self.assertIsNone({s["id"]: s["cover"] for s in self.songs()}[last_id])
+
+    def test_home_covers_reuse_files_when_youtube_fails(self):
+        self.run_with(FakeYouTube())
+        covers = sorted(os.listdir(os.path.join(self.dir, "covers")))
+        page = self.page()
+        self.run_with(FakeYouTube(broken_thumbs=True))     # YouTube не отдаёт картинки, но они уже есть на сайте
+        self.assertEqual(self.page(), page)
+        self.assertEqual(sorted(os.listdir(os.path.join(self.dir, "covers"))), covers)
 
     def test_slug_stays_when_title_changes(self):
         self.run_with(FakeYouTube(videos=EXTRA))
