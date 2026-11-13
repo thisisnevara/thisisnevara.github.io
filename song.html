@@ -160,6 +160,25 @@ footer{max-width:1068px;margin:0 auto;padding:28px 0 44px;display:flex;flex-wrap
 </footer>
 
 <script>
+/* Кнопка «Обновить» открывает страницу сверху, как новую. Переходы «Назад/Вперёд» по-прежнему
+   возвращают на то место, где вы были (например, к списку песен) */
+(function(){try{
+  history.scrollRestoration="manual";
+  const key="nevara-scroll:"+location.pathname, nav=performance.getEntriesByType("navigation")[0];
+  const type=nav?nav.type:"navigate";
+  addEventListener("pagehide",()=>{try{sessionStorage.setItem(key,String(Math.round(scrollY)))}catch(e){}});
+  let y=null;
+  if(type==="reload"){
+    y=0;
+    if(location.hash)history.replaceState(null,"",location.pathname+location.search);
+  }else if(type==="back_forward"){
+    y=parseInt(sessionStorage.getItem(key)||"",10);
+    if(isNaN(y))y=null;
+  }
+  if(y===null)return;
+  const go=()=>scrollTo({top:y,behavior:"instant"});
+  go();addEventListener("load",()=>{go();requestAnimationFrame(go)});
+}catch(e){}})();
 const T={
   ru:{back:"← Все песни",listen:"Слушать",youtube:"Смотреть на YouTube",subscribe:"Подписаться",about:"О песне",lyrics:"Текст песни",more:"Ещё песни",all:"Все песни Nevara",prod:"продакшн Nevara Music",jump:"Текст песни ↓","ver-ru":"Русская версия","ver-es":"Испанская версия"},
   es:{back:"← Todas las canciones",listen:"Escuchar",youtube:"Ver en YouTube",subscribe:"Suscribirse",about:"Sobre la canción",lyrics:"Letra",more:"Más canciones",all:"Todas las canciones",prod:"producción Nevara Music",jump:"Letra ↓","ver-ru":"Versión en ruso","ver-es":"Versión en español"},
