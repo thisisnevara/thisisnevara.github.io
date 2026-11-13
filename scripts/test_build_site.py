@@ -247,5 +247,32 @@ class VersionTests(unittest.TestCase):
         self.assertEqual(b.YEAR_TAIL.sub("", "Latin Pop 2026"), "Latin Pop")
 
 
+
+class OthersTests(unittest.TestCase):
+    def setUp(self):
+        import build_site as b
+        self.b = b
+        g = ["Latin Pop 2026", "Reggaeton 2026", "Latin Pop 2026", "Reggaeton 2026", "Latin Pop 2026",
+             "Reggaeton 2026", "Latin Pop 2026", "Reggaeton 2026", "Latin Pop 2026", "Reggaeton 2026"]
+        self.songs = [{"slug": f"s{n}", "published": f"2026-01-{n + 10:02d}", "views": n * 7 % 10,
+                       "sub": ["строка", g[n]]} for n in range(10)]
+
+    def test_neighbours_genre_popular_no_self_no_dupes(self):
+        s = self.songs[5]
+        picks = [o["slug"] for o in self.b.pick_others(s, self.songs)]
+        self.assertEqual(len(picks), 6)
+        self.assertEqual(len(set(picks)), 6)
+        self.assertNotIn("s5", picks)
+        self.assertEqual(picks[:2], ["s6", "s4"])                          # соседние релизы
+        self.assertEqual(picks[2:4], ["s7", "s9"])                         # тот же жанр, по кругу после s5
+
+    def test_sets_differ_between_pages_and_exclude_works(self):
+        sets = {tuple(o["slug"] for o in self.b.pick_others(s, self.songs)) for s in self.songs}
+        self.assertGreater(len(sets), 5)
+        picks = [o["slug"] for o in self.b.pick_others(self.songs[5], self.songs, exclude={"s6"})]
+        self.assertNotIn("s6", picks)
+        self.assertEqual(len(picks), 6)
+
+
 if __name__ == "__main__":
     unittest.main()

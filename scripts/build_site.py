@@ -198,6 +198,40 @@ def song_lang(name):
     return "ru" if re.search("[а-яё]", name, re.I) else "es"
 
 
+def song_genre(s):
+    sub = s.get("sub") or []
+    return YEAR_TAIL.sub("", sub[1]).lower() if len(sub) > 1 else ""
+
+
+def pick_others(s, songs, exclude=(), limit=6):
+    """«Ещё песни» — у каждой страницы свой набор, но одинаковый при каждой сборке:
+    соседние по дате релизы, затем песни того же жанра (по кругу после этой — чтобы ссылки
+    распределялись между всеми песнями), затем самые популярные."""
+    by_date = sorted(songs, key=lambda o: (o.get("published", ""), o["slug"]))
+    picks = []
+
+    def add(o):
+        if len(picks) < limit and o is not s and o["slug"] not in exclude and o not in picks:
+            picks.append(o)
+
+    i = by_date.index(s)
+    if i + 1 < len(by_date):
+        add(by_date[i + 1])                                   # следующий релиз
+    if i > 0:
+        add(by_date[i - 1])                                   # предыдущий релиз
+    genre = song_genre(s)
+    same = [o for o in by_date if genre and song_genre(o) == genre]
+    if s in same:
+        j = same.index(s)
+        for o in same[j + 1:] + same[:j]:
+            if len(picks) >= 4:
+                break
+            add(o)
+    for o in sorted(songs, key=lambda o: -int(o.get("views") or 0)):
+        add(o)
+    return picks
+
+
 def build_songs(root, tmp, og_fallback=SITE_URL + "nevara-og.jpg"):
     """Страница для каждой песни из data/songs.json. Возвращает список (адрес, дата) для sitemap."""
     from PIL import Image, ImageFilter
@@ -268,7 +302,8 @@ def build_songs(root, tmp, og_fallback=SITE_URL + "nevara-og.jpg"):
         jump = ('<p class="jump"><a href="#lyrics" data-i18n="jump">Текст песни ↓</a></p>'
                 if has_lyrics else "")
 
-        others = [o for o in songs if o["slug"] != slug][:6]
+        pair = {o["slug"] for o in groups[version_key(slug)]}     # другая версия уже есть ссылкой наверху
+        others = pick_others(s, songs, exclude=pair)
         others_html = "".join(
             f'<li><a href="../{esc(o["slug"])}/"><b>{esc(o["name"])}</b>'
             f'<span>{esc(o["sub"][0]) if o.get("sub") else ""}</span></a></li>' for o in others)

@@ -130,7 +130,7 @@ class UpdateTests(unittest.TestCase):
         self.assertNotIn("СТАРЫЙ БЛОК", page)
         new_block = page.split('<p class="subhead"')[0]
         self.assertIn("v=qUbkpldW_Z0", new_block)                      # самое новое — BAMBOLEO
-        grid = page.split('class="release-grid"')[1].split('<details class="catalog">')[0]
+        grid = page.split('class="release-grid"')[1].split('<details class="catalog" id="all-songs">')[0]
         order = [vid for vid in ("ZVjUQYGsI4c", "hVZ7I8PLAbE", "C6ynOt9dk1M", "GuD_Mh0cCrA")]
         positions = [grid.index(v) for v in order]
         self.assertEqual(positions, sorted(positions))                   # по убыванию просмотров
@@ -153,8 +153,8 @@ class UpdateTests(unittest.TestCase):
 
     def test_catalog_lists_all_songs_newest_first(self):
         page = self.run_with(FakeYouTube())
-        self.assertEqual(page.count('<details class="catalog">'), 1)
-        catalog = page.split('<details class="catalog">')[1].split('</details>')[0]
+        self.assertEqual(page.count('<details class="catalog" id="all-songs">'), 1)
+        catalog = page.split('<details class="catalog" id="all-songs">')[1].split('</details>')[0]
         self.assertIn('<span class="count">5</span>', catalog)
         order = ["qUbkpldW_Z0", "hVZ7I8PLAbE", "C6ynOt9dk1M", "GuD_Mh0cCrA", "ZVjUQYGsI4c"]   # по дате, новые сверху
         positions = [catalog.index(v) for v in order]
@@ -165,7 +165,7 @@ class UpdateTests(unittest.TestCase):
 
     def test_catalog_keeps_versions_apart_and_full_title(self):
         page = self.run_with(FakeYouTube())
-        catalog = page.split('<details class="catalog">')[1]
+        catalog = page.split('<details class="catalog" id="all-songs">')[1]
         self.assertIn('<span class="c-name">BAMBOLEO</span><span class="c-sub">Versión en\u00a0Español<span class="c-sep"> · </span><span class="c-genre">Latin Pop\u00a02026</span></span>', catalog)
         self.assertIn('title="Nevara — BAMBOLEO | Versión en Español | Latin Pop 2026"', catalog)
 
@@ -173,7 +173,7 @@ class UpdateTests(unittest.TestCase):
         videos = [("AAAAAAAAAAA", 'Nevara — "Песня" <b>', "2026-11-08T10:00:00Z", 1, "PT3M", "none"),
                   ("BBBBBBBBBBB", "Nevara — Другая", "2026-10-08T10:00:00Z", 1, "PT3M", "none")]
         page = self.run_with(FakeYouTube(videos=videos))
-        catalog = page.split('<details class="catalog">')[1]
+        catalog = page.split('<details class="catalog" id="all-songs">')[1]
         self.assertNotIn("<b>", catalog)
         self.assertIn('title="Nevara — &quot;Песня&quot; &lt;b&gt;"', catalog)
 
@@ -225,7 +225,7 @@ class UpdateTests(unittest.TestCase):
         self.assertEqual(bam["slug"], "bamboleo")
         self.assertEqual(bam["sub"], ["Versión en Español", "Latin Pop 2026"])
         self.assertTrue(os.path.exists(os.path.join(self.dir, bam["cover"])))
-        catalog = page.split('<details class="catalog">')[1]
+        catalog = page.split('<details class="catalog" id="all-songs">')[1]
         self.assertIn('href="bamboleo/"', catalog)
         self.assertNotIn("youtube.com/watch", catalog)                           # список ведёт на страницы песен
         self.assertIn('class="text-link" href="bamboleo/"', page)
