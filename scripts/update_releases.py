@@ -210,6 +210,7 @@ def clean_description(text, max_paragraphs=3):
 
 # ---------- обложки ----------
 COVERS_ROOT = None    # папка сайта; main() заполняет — для запасного варианта «прошлая обложка»
+REUSED_COVERS = set() # обложки, взятые с прошлых запусков вместо свежих (для честного счётчика в журнале)
 
 
 def previous_cover(width, vid, store):
@@ -226,6 +227,7 @@ def previous_cover(width, vid, store):
     best = max(names, key=lambda n: os.path.getmtime(os.path.join(folder, n)))
     with open(os.path.join(folder, best), "rb") as f:
         store["covers/" + best] = f.read()
+    REUSED_COVERS.add("covers/" + best)
     return "covers/" + best
 
 
@@ -397,6 +399,7 @@ def main(path):
     global COVERS_ROOT
     root = os.path.dirname(os.path.abspath(path))
     COVERS_ROOT = root
+    REUSED_COVERS.clear()
     data_path = os.path.join(root, "data", "songs.json")
     slugs_path = os.path.join(root, "data", "slugs.json")
     known, old_covers, old_json, old_slugs = {}, {}, None, None
@@ -423,7 +426,8 @@ def main(path):
         """Обложка страницы песни. Если YouTube сейчас её не отдал — берём прошлую,
         а если прошлой нет — страница выйдет с нейтральным фоном и подтянет обложку при следующем запуске."""
         try:
-            return make_cover(v["thumbs"], 800, v["id"], store), "new"
+            name = make_cover(v["thumbs"], 800, v["id"], store)
+            return name, ("old" if name in REUSED_COVERS else "new")
         except UpdateError:
             old = old_covers.get(v["id"], "")
             old_path = os.path.join(root, old)

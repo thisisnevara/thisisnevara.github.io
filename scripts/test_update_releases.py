@@ -2,10 +2,11 @@
 
 Работают без интернета и без ключа: ответы YouTube подменяются тестовыми данными.
 """
+import contextlib
 import io
 import json
-import re
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -261,7 +262,10 @@ class UpdateTests(unittest.TestCase):
         self.run_with(FakeYouTube())
         covers = sorted(os.listdir(os.path.join(self.dir, "covers")))
         page = self.page()
-        self.run_with(FakeYouTube(broken_thumbs=True))     # YouTube не отдаёт картинки, но они уже есть на сайте
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.run_with(FakeYouTube(broken_thumbs=True))  # YouTube не отдаёт картинки, но они уже есть на сайте
+        self.assertIn("свежих 0, прошлых 5, без обложки 0", out.getvalue())
         self.assertEqual(self.page(), page)
         self.assertEqual(sorted(os.listdir(os.path.join(self.dir, "covers"))), covers)
 
