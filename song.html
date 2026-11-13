@@ -99,18 +99,31 @@ footer{max-width:1068px;margin:0 auto;padding:28px 0 44px;display:flex;flex-wrap
   section{grid-template-columns:minmax(0,1fr);gap:14px;padding:40px 0}
   .lyrics{columns:1}
 }
-.share{font:inherit;cursor:pointer}
-.sr{position:absolute;width:1px;height:1px;margin:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+/* «Поделиться» — квадратная кнопка-значок в одном ряду с остальными; подпись — для экранного диктора */
+.share{font:inherit;cursor:pointer;position:relative;flex:none;width:52px;padding:0;justify-content:center}
+.share .lbl,.sr{position:absolute;width:1px;height:1px;margin:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.share svg{flex:none;width:20px;height:20px}
+.share .tip{position:absolute;top:calc(100% + 8px);right:0;white-space:nowrap;background:var(--asphalt);border:1px solid var(--sodium);color:var(--sodium);font:700 13px/1 var(--body);padding:8px 10px;border-radius:8px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:2}
 .share.done{border-color:var(--sodium);color:var(--sodium)}
-@media (max-width:480px){
+.share.done .tip{opacity:1}
+@media (hover:hover){.share:hover{border-color:var(--neon)}}
+/* Если колонке с названием тесно (ноутбук, планшет) — кнопки остаются в один ряд, «YouTube» коротко */
+.info{container-type:inline-size;min-width:0}
+.actions .btn{padding:15px 18px}
+@container (min-width:441px){.actions{flex-wrap:nowrap}}
+@container (max-width:440px){
   .actions{display:grid;grid-template-columns:1fr 1fr 52px;gap:10px}
-  .share{padding:15px 0}
-  .share .lbl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
   .actions .btn{justify-content:center;padding:15px 12px}
   .btn .long{display:none}
   .btn .short{display:inline}
 }
-@media (prefers-reduced-motion:reduce){.btn,.play .pill{transition:none}}
+@media (max-width:480px){
+  .actions{display:grid;grid-template-columns:1fr 1fr 52px;gap:10px}
+  .actions .btn{justify-content:center;padding:15px 12px}
+  .btn .long{display:none}
+  .btn .short{display:inline}
+}
+@media (prefers-reduced-motion:reduce){.btn,.play .pill,.share .tip{transition:none}}
 </style>
 </head>
 <body>
@@ -133,7 +146,7 @@ footer{max-width:1068px;margin:0 auto;padding:28px 0 44px;display:flex;flex-wrap
       {{COVER_IMG}}
       <button type="button" class="play" data-title="Nevara — {{NAME}}"><span class="pill"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg><span data-i18n="listen">Слушать</span></span></button>
     </div>
-    <div>
+    <div class="info">
       <p class="kicker">Nevara</p>
       <h1>{{NAME}}</h1>
       {{LINE}}
@@ -142,7 +155,7 @@ footer{max-width:1068px;margin:0 auto;padding:28px 0 44px;display:flex;flex-wrap
       <div class="actions">
         <a class="btn primary" href="https://www.youtube.com/watch?v={{VIDEO_ID}}"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23 7.2a3 3 0 0 0-2.1-2.1C19 4.6 12 4.6 12 4.6s-7 0-8.9.5A3 3 0 0 0 1 7.2 31 31 0 0 0 .5 12a31 31 0 0 0 .5 4.8 3 3 0 0 0 2.1 2.1c1.9.5 8.9.5 8.9.5s7 0 8.9-.5a3 3 0 0 0 2.1-2.1 31 31 0 0 0 .5-4.8 31 31 0 0 0-.5-4.8zM9.7 15.1V8.9l5.8 3.1-5.8 3.1z"/></svg><span class="long" data-i18n="youtube">Смотреть на YouTube</span><span class="short">YouTube</span></a>
         <a class="btn" href="https://www.youtube.com/@thisisnevara?sub_confirmation=1" data-i18n="subscribe">Подписаться</a>
-        <button class="btn share" type="button" aria-label="Поделиться"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg><span class="lbl" data-i18n="share">Поделиться</span></button>
+        <button class="btn share" type="button" aria-label="Поделиться"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg><span class="lbl" data-i18n="share">Поделиться</span><span class="tip" aria-hidden="true"></span></button>
       </div>
       <p id="share-status" class="sr" aria-live="polite"></p>
       {{JUMP}}
@@ -196,7 +209,7 @@ function setLang(l){
   document.documentElement.lang=l;
   document.querySelectorAll("[data-i18n]").forEach(el=>{const v=T[l][el.dataset.i18n];if(v)el.textContent=v;});
   document.querySelectorAll(".langs button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.lang===l));
-  document.querySelectorAll(".share").forEach(b=>b.setAttribute("aria-label",T[l].share));
+  document.querySelectorAll(".share").forEach(b=>{b.setAttribute("aria-label",T[l].share);b.title=T[l].share});
   try{const f=new Intl.DateTimeFormat(LOCALE[l],{day:"numeric",month:"long",year:"numeric",timeZone:"UTC"});
     document.querySelectorAll("time[datetime]").forEach(el=>{const d=new Date(el.getAttribute("datetime")+"T00:00:00Z");if(!isNaN(d))el.textContent=f.format(d).replace(" г.","");});}catch(e){}
   try{localStorage.setItem("nevara-lang",l)}catch(e){}
@@ -215,10 +228,10 @@ document.querySelectorAll(".share").forEach(b=>b.addEventListener("click",async(
     try{const t=document.createElement("textarea");t.value=url;t.setAttribute("readonly","");t.style.position="fixed";t.style.opacity="0";
       document.body.appendChild(t);t.select();ok=document.execCommand("copy");t.remove()}catch(e2){}}
   if(!ok)return;
-  const lbl=b.querySelector(".lbl"),l=document.documentElement.lang;
-  lbl.textContent=(T[l]||T.ru).copied;b.classList.add("done");
-  const live=document.getElementById("share-status");if(live)live.textContent=lbl.textContent;
-  setTimeout(()=>{lbl.textContent=(T[document.documentElement.lang]||T.ru).share;b.classList.remove("done")},2200);
+  const msg=(T[document.documentElement.lang]||T.ru).copied,tip=b.querySelector(".tip");
+  if(tip)tip.textContent=msg;b.classList.add("done");
+  const live=document.getElementById("share-status");if(live)live.textContent=msg;
+  clearTimeout(b._t);b._t=setTimeout(()=>{b.classList.remove("done");if(live)live.textContent=""},2200);
 }));
 
 // Click-to-load player: nothing is requested from YouTube until the visitor presses play.
