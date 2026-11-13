@@ -32,6 +32,9 @@ VIDEOS = [
     ("SHORTS00001", "Nevara teaser #shorts", "2026-11-09T10:00:00Z", 50000, "PT0M30S", "none"),
     ("PREMIERE001", "Nevara — Скоро премьера", "2026-11-12T10:00:00Z", 0, "PT0S", "upcoming"),
 ]
+# + старая малопопулярная песня: она есть только в общем списке (не новая и не в популярных)
+EXTRA = VIDEOS + [("XL9t_Nde2v8", "Nevara — КОД ДОСТУПА | На твоих губах | Reggaeton 2026",
+                   "2026-06-16T10:00:00Z", 10, "PT3M", "none")]
 
 
 def jpeg(letterbox):
@@ -44,13 +47,14 @@ def jpeg(letterbox):
 
 
 class FakeYouTube:
-    def __init__(self, videos=VIDEOS, uulf=True, api_error=None, broken_thumbs=False, privacy=None):
+    def __init__(self, videos=VIDEOS, uulf=True, api_error=None, broken_thumbs=False, privacy=None, broken_n=()):
         self.videos, self.uulf, self.api_error, self.broken_thumbs = videos, uulf, api_error, broken_thumbs
         self.privacy = privacy or {}     # id -> "private" | "unlisted"
+        self.broken_n = set(broken_n)    # номера видео, чьи обложки YouTube «не отдаёт»
 
     def __call__(self, url):
         if url.startswith("thumb:"):
-            if self.broken_thumbs:
+            if self.broken_thumbs or int(url.split(":")[1]) in self.broken_n:
                 raise OSError("network down")
             return jpeg(letterbox=url.endswith("high"))
         if self.api_error:
@@ -191,6 +195,91 @@ class UpdateTests(unittest.TestCase):
         self.assertNotIn("C6ynOt9dk1M", page)
         self.assertFalse([c for c in os.listdir(os.path.join(self.dir, "covers")) if c.startswith("C6ynOt9dk1M")])
 
+    def test_slugify(self):
+        cases = {"НОЯБРЬ НА ДВОИХ": "noyabr-na-dvoikh", "BAMBOLEO (Español)": "bamboleo-espanol",
+                 "МАНИЯ — ИСПАНИЯ": "maniya-ispaniya", "MI COMETA / МОЯ КОМЕТА": "mi-cometa-moya-kometa",
+                 "ЛАТИНО-ПАНИКА": "latino-panika", "VEN PARA MÍ": "ven-para-mi", "ОЛЕ ОЛЕ": "ole-ole",
+                 "ЭТО ГРАВИТАЦИЯ": "eto-gravitatsiya", "БАЙЛАМЕ": "baylame"}
+        for name, slug in cases.items():
+            with self.subTest(name=name):
+                self.assertEqual(upd.slugify(name), slug)
+
+    def test_clean_description(self):
+        text = ("🔔 Подписаться на Nevara: https://www.youtube.com/@thisisnevara?sub_confirmation=1\n"
+                "🌐 Официальный сайт: https://thisisnevara.com\n\n"
+                "❄️🔥 «НОЯБРЬ НА ДВОИХ» — новая Latin Pop премьера 2026.\n\n"
+                "Второй абзац о песне.\n\n"
+                "Ноябрь на двоих — горячая ночь,\nТанцуй со мной, прогоним холод прочь.\n\n"
+                "Ещё абзац после текста\n\n#Nevara #LatinPop")
+        self.assertEqual(upd.clean_description(text),
+                         ["❄️🔥 «НОЯБРЬ НА ДВОИХ» — новая Latin Pop премьера 2026.", "Второй абзац о песне."])
+        self.assertEqual(upd.clean_description(""), [])
+        self.assertEqual(upd.clean_description("#Nevara #LatinPop"), [])
+
+    def test_song_data_and_links_to_song_pages(self):
+        page = self.run_with(FakeYouTube())
+        with open(os.path.join(self.dir, "data", "songs.json"), encoding="utf-8") as f:
+            songs = json.load(f)["songs"]
+        self.assertEqual([s["id"] for s in songs][0], "qUbkpldW_Z0")            # новые сверху
+        bam = songs[0]
+        self.assertEqual(bam["slug"], "bamboleo")
+        self.assertEqual(bam["sub"], ["Versión en Español", "Latin Pop 2026"])
+        self.assertTrue(os.path.exists(os.path.join(self.dir, bam["cover"])))
+        catalog = page.split('<details class="catalog">')[1]
+        self.assertIn('href="bamboleo/"', catalog)
+        self.assertNotIn("youtube.com/watch", catalog)                           # список ведёт на страницы песен
+        self.assertIn('class="text-link" href="bamboleo/"', page)
+
+    def songs(self):
+        with open(os.path.join(self.dir, "data", "songs.json"), encoding="utf-8") as f:
+            return json.load(f)["songs"]
+
+    def test_every_song_page_gets_a_cover(self):
+        self.run_with(FakeYouTube())
+        songs = self.songs()
+        self.assertTrue(songs)
+        for s in songs:
+            self.assertTrue(s["cover"] and os.path.exists(os.path.join(self.dir, s["cover"])), s["id"])
+
+    def test_page_cover_falls_back_to_previous_then_to_none(self):
+        self.run_with(FakeYouTube(videos=EXTRA))
+        before = {s["id"]: s["cover"] for s in self.songs()}
+        last = len(EXTRA) - 1                       # старая песня, не новая и не в популярных
+        last_id = EXTRA[last][0]
+        self.run_with(FakeYouTube(videos=EXTRA, broken_n={last}))  # YouTube не отдал её обложку — берём прошлую
+        after = {s["id"]: s["cover"] for s in self.songs()}
+        self.assertEqual(after[last_id], before[last_id])
+        self.assertTrue(os.path.exists(os.path.join(self.dir, after[last_id])))
+        shutil.rmtree(os.path.join(self.dir, "data"))  # прошлой нет — страница без обложки, но обновление идёт
+        self.run_with(FakeYouTube(videos=EXTRA, broken_n={last}))
+        self.assertIsNone({s["id"]: s["cover"] for s in self.songs()}[last_id])
+
+    def test_slug_stays_when_title_changes(self):
+        self.run_with(FakeYouTube(videos=EXTRA))
+        first = {s["id"]: s["slug"] for s in self.songs()}
+        renamed = [(v[0], v[1].replace("BAMBOLEO", "BAMBOLEO NUEVO"),) + tuple(v[2:]) for v in EXTRA]
+        self.run_with(FakeYouTube(videos=renamed))
+        self.assertEqual({s["id"]: s["slug"] for s in self.songs()}, first)
+        with open(os.path.join(self.dir, "data", "slugs.json"), encoding="utf-8") as f:
+            self.assertEqual(json.load(f), first)
+
+    def test_hidden_song_keeps_its_slug_reserved(self):
+        self.run_with(FakeYouTube(videos=EXTRA))
+        hidden = EXTRA[-1][0]
+        slug = {s["id"]: s["slug"] for s in self.songs()}[hidden]
+        self.run_with(FakeYouTube(videos=EXTRA, privacy={hidden: "private"}))
+        self.assertNotIn(hidden, [s["id"] for s in self.songs()])
+        self.run_with(FakeYouTube(videos=EXTRA))
+        self.assertEqual({s["id"]: s["slug"] for s in self.songs()}[hidden], slug)
+
+    def test_same_names_get_unique_slugs(self):
+        videos = [("AAAAAAAAAAA", "Nevara — ДО УТРА | Версия 1", "2026-11-08T10:00:00Z", 1, "PT3M", "none"),
+                  ("BBBBBBBBBBB", "Nevara — ДО УТРА | Версия 2", "2026-10-08T10:00:00Z", 1, "PT3M", "none")]
+        self.run_with(FakeYouTube(videos=videos))
+        with open(os.path.join(self.dir, "data", "songs.json"), encoding="utf-8") as f:
+            slugs = {s["id"]: s["slug"] for s in json.load(f)["songs"]}
+        self.assertEqual(slugs, {"BBBBBBBBBBB": "do-utra", "AAAAAAAAAAA": "do-utra-2"})   # старшая — без номера
+
     def test_shorts_and_premieres_excluded(self):
         for uulf in (True, False):
             with self.subTest(uulf=uulf):
@@ -210,14 +299,16 @@ class UpdateTests(unittest.TestCase):
         for n in names:
             path = os.path.join(self.dir, n)
             self.assertTrue(os.path.exists(path), n)
-            w, h = Image.open(path).size
+            with Image.open(path) as im:
+                w, h = im.size
             self.assertAlmostEqual(w / h, 16 / 9, delta=0.02)            # чёрные полосы 4:3 обрезаны
         self.assertIn('loading="lazy"', page)
 
     def test_stale_covers_removed_only_after_success(self):
         os.makedirs(os.path.join(self.dir, "covers"))
         old = os.path.join(self.dir, "covers", "OLDVIDEO001-480-abcdef.webp")
-        open(old, "wb").write(b"old")
+        with open(old, "wb") as f:
+            f.write(b"old")
         upd.http_get = FakeYouTube(broken_thumbs=True)               # сбой: старое не трогаем
         with self.assertRaises(upd.UpdateError):
             upd.main(self.path)
@@ -225,7 +316,8 @@ class UpdateTests(unittest.TestCase):
         self.assertEqual(self.page(), PAGE)
         self.run_with(FakeYouTube())                                     # успех: старое убрано
         self.assertFalse(os.path.exists(old))
-        self.assertEqual(len(os.listdir(os.path.join(self.dir, "covers"))), 5)
+        # 5 песен × обложка 800 px для страниц + 4 популярные × 480 px
+        self.assertEqual(len(os.listdir(os.path.join(self.dir, "covers"))), 9)
 
 
     def test_titles_are_escaped(self):
@@ -281,7 +373,8 @@ class UpdateTests(unittest.TestCase):
 
     def test_atomic_write_leaves_no_temp_file(self):
         self.run_with(FakeYouTube())
-        self.assertEqual(sorted(os.listdir(self.dir)), ["covers", "index.html"])
+        self.assertEqual(sorted(os.listdir(self.dir)), ["covers", "data", "index.html"])
+        self.assertEqual(sorted(os.listdir(os.path.join(self.dir, "data"))), ["slugs.json", "songs.json"])
         self.assertFalse([f for f in os.listdir(os.path.join(self.dir, "covers")) if not f.endswith(".webp")])
 
     def test_interrupted_write_keeps_page(self):

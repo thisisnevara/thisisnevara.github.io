@@ -8,6 +8,9 @@
 (WebP, грузятся на странице лениво, только когда до них долистали),
 поэтому сайт показывает их даже без доступа к YouTube.
 
+Для каждой открытой песни сохраняются данные в data/songs.json (название, адрес страницы,
+описание из YouTube, обложка) — по ним build_site.py делает отдельные страницы песен.
+
 Если что-то пошло не так, index.html не меняется и скрипт завершается с ошибкой:
 сайт продолжает показывать последние сохранённые песни.
 
@@ -15,6 +18,7 @@
 """
 import hashlib
 import html
+import unicodedata
 import io
 import json
 import os
@@ -115,6 +119,7 @@ def fetch_videos():
                 "title": sn.get("title", ""),
                 "published": sn.get("publishedAt", ""),
                 "views": int(st.get("viewCount", 0) or 0),
+                "description": sn.get("description", ""),
                 "thumbs": sn.get("thumbnails", {}),
             })
     if len(videos) < 2:
@@ -139,12 +144,79 @@ def split_title(raw):
     return name, " · ".join(extra)
 
 
+# ---------- адреса страниц и описания ----------
+TRANSLIT = dict(zip("абвгдеёжзийклмнопрстуфхцчшщъыьэюя",
+                    ["a", "b", "v", "g", "d", "e", "e", "zh", "z", "i", "y", "k", "l", "m", "n", "o", "p", "r", "s",
+                     "t", "u", "f", "kh", "ts", "ch", "sh", "shch", "", "y", "", "e", "yu", "ya"]))
+RESERVED = {"img", "covers", "images", "scripts", "lyrics", "data", "index", "sitemap", "robots", "favicon"}
+
+
+def slugify(name):
+    """«НОЯБРЬ НА ДВОИХ» -> noyabr-na-dvoikh, «BAMBOLEO (Español)» -> bamboleo-espanol."""
+    out = []
+    for ch in name.lower():
+        if ch in TRANSLIT:
+            out.append(TRANSLIT[ch])
+        else:
+            out.append(unicodedata.normalize("NFKD", ch).encode("ascii", "ignore").decode())
+    slug = re.sub(r"[^a-z0-9]+", "-", "".join(out)).strip("-")
+    return slug or "song"
+
+
+def assign_slugs(videos, known=None):
+    """Уникальный адрес страницы для каждой песни; при совпадении — -2, -3…
+    known — уже выданные адреса (id видео -> адрес) из data/slugs.json: адрес закреплён за видео
+    навсегда и не меняется, даже если название на YouTube исправят. Новые песни не могут занять
+    адрес, который когда-то был у другой песни (даже если она сейчас скрыта)."""
+    known = known if known is not None else {}
+    used = set(known.values())
+    for v in videos:
+        if v["id"] in known:
+            v["slug"] = known[v["id"]]
+    for v in sorted(videos, key=lambda v: v["published"]):          # старшие песни получают адрес первыми
+        if v["id"] in known:
+            continue
+        base = slugify(split_title(v["title"])[0])
+        if base in RESERVED:
+            base += "-song"
+        slug, n = base, 2
+        while slug in used:
+            slug, n = f"{base}-{n}", n + 1
+        used.add(slug)
+        v["slug"] = slug
+        known[v["id"]] = slug
+    return known
+
+
+LINK_LINE = re.compile(r"https?://|подписаться|официальный сайт|subscribe", re.I)
+
+
+def clean_description(text, max_paragraphs=3):
+    """Берёт из описания YouTube только связный текст о песне:
+    без строк со ссылками («Подписаться», «Официальный сайт»), без хештегов,
+    и останавливается на первом многострочном абзаце (это уже строки песни)."""
+    paragraphs = []
+    for block in re.split(r"\n\s*\n", text.replace("\r", "")):
+        lines = [l.strip() for l in block.split("\n") if l.strip() and not LINK_LINE.search(l)]
+        if not lines:
+            continue
+        if lines[0].startswith("#") or len(lines) > 1:
+            break
+        paragraphs.append(lines[0])
+        if len(paragraphs) >= max_paragraphs:
+            break
+    return paragraphs
+
+
 # ---------- обложки ----------
 def make_cover(thumbs, width, vid, store):
     """Скачивает обложку, сохраняет её в store (имя файла -> байты) и возвращает путь для страницы.
     Сами файлы записываются на диск только в main(), когда всё остальное получилось."""
     from PIL import Image
 
+    done = [n for n in store if n.startswith(f"covers/{vid}-{width}-")]
+    if done:                                   # эту обложку в этом запуске уже скачали
+        return done[0]
     for key in ("maxres", "standard", "high", "medium"):
         url = thumbs.get(key, {}).get("url")
         if not url:
@@ -218,6 +290,7 @@ def build_block(new, popular, indent="      ", now=None, catalog=(), store=None)
             out.append(f'    <p class="tags">{tags}</p>')
     out += [
         f'    <a class="btn" href="https://www.youtube.com/watch?v={vid}" data-i18n="watch-new">Смотреть на YouTube</a>',
+        f'    <a class="text-link" href="{esc(new.get("slug", ""))}/" data-i18n="song-page">Текст и описание →</a>',
         '  </div>',
         '</div>',
         '<p class="subhead" data-i18n="popular">Популярные треки</p>',
@@ -229,10 +302,10 @@ def build_block(new, popular, indent="      ", now=None, catalog=(), store=None)
         cover = f'<img src="{img}" alt="" loading="lazy">'
         grad = GRADIENTS[(n - 1) % len(GRADIENTS)]
         out.append(
-            f'  <a class="release" href="https://www.youtube.com/watch?v={esc(v["id"])}">'
+            f'  <a class="release" href="{esc(v.get("slug", ""))}/" data-id="{esc(v["id"])}">'
             f'<div class="cover" style="background:linear-gradient(135deg,{grad})">{cover}</div>'
             f'<div class="meta"><small>NEVARA / {n:02d}</small><b>{esc(name)}</b>'
-            f'<span data-i18n="watch">Смотреть на YouTube ↗</span></div></a>'
+            f'<span data-i18n="open-song">Открыть песню →</span></div></a>'
         )
     out.append('</div>')
     out += build_catalog(catalog)
@@ -265,9 +338,9 @@ def build_catalog(videos):
 
         when = f'<time datetime="{esc(day)}">{shown}</time>' if shown else ""
         out.append(
-            f'    <li><a href="https://www.youtube.com/watch?v={esc(v["id"])}" title="{esc(v["title"])}">'
+            f'    <li><a href="{esc(v.get("slug", ""))}/" data-id="{esc(v["id"])}" title="{esc(v["title"])}">'
             f'<span class="c-text"><span class="c-name">{esc(name)}</span>{sub_html}</span>'
-            f'{when}<span class="c-arrow" aria-hidden="true">↗</span></a></li>'
+            f'{when}<span class="c-arrow" aria-hidden="true">→</span></a></li>'
         )
     out += ['  </ol>', '</details>']
     return out
@@ -296,14 +369,68 @@ def main(path):
     new = videos[0]
     popular = sorted(videos[1:], key=lambda v: v["views"], reverse=True)[:POPULAR_COUNT]
 
+    root = os.path.dirname(os.path.abspath(path))
+    data_path = os.path.join(root, "data", "songs.json")
+    slugs_path = os.path.join(root, "data", "slugs.json")
+    known, old_covers, old_json, old_slugs = {}, {}, None, None
+    if os.path.exists(slugs_path):
+        with open(slugs_path, encoding="utf-8") as f:
+            old_slugs = f.read()
+        known = {k: v for k, v in json.loads(old_slugs).items()
+                 if VIDEO_ID.match(k) and re.fullmatch(r"[a-z0-9-]+", str(v))}
+    if os.path.exists(data_path):
+        with open(data_path, encoding="utf-8") as f:
+            old_json = f.read()
+        try:
+            old_covers = {s["id"]: s["cover"] for s in json.loads(old_json)["songs"] if s.get("cover")}
+        except (ValueError, KeyError, TypeError):
+            old_covers = {}
+    known = assign_slugs(videos, dict(known))
+
     store = {}
+    # Обложки нового релиза и популярных обязательны: без них главную не меняем
     block = build_block(new, popular, catalog=videos, store=store)
     updated = START.sub(lambda m: m.group(1) + block + m.group(3), page, count=1)
 
-    root = os.path.dirname(os.path.abspath(path))
+    def page_cover(v):
+        """Обложка страницы песни. Если YouTube сейчас её не отдал — берём прошлую,
+        а если прошлой нет — страница выйдет с нейтральным фоном и подтянет обложку при следующем запуске."""
+        try:
+            return make_cover(v["thumbs"], 800, v["id"], store), "new"
+        except UpdateError:
+            old = old_covers.get(v["id"], "")
+            old_path = os.path.join(root, old)
+            if re.fullmatch(r"covers/[\w-]+\.webp", old) and os.path.exists(old_path):
+                with open(old_path, "rb") as f:
+                    store[old] = f.read()
+                return old, "old"
+            return None, "none"
+
+    # Данные для страниц песен: обложка 800 px у каждой песни, описание из YouTube
+    songs, cover_stats = [], {"new": 0, "old": 0, "none": 0}
+    for v in videos:
+        cover, how = page_cover(v)
+        cover_stats[how] += 1
+        name, sub = split_title(v["title"])
+        songs.append({
+            "id": v["id"],
+            "slug": v["slug"],
+            "title": v["title"],
+            "name": name,
+            "sub": sub.split(" · ") if sub else [],
+            "published": v["published"][:10],
+            "views": v["views"],
+            "description": clean_description(v.get("description", "")),
+            "cover": cover,
+        })
+    songs_json = json.dumps({"songs": songs}, ensure_ascii=False, indent=1) + "\n"
+    slugs_json = json.dumps(dict(sorted(known.items())), ensure_ascii=False, indent=1) + "\n"
+    print(f"Обложки страниц песен (всего {len(videos)}): свежих {cover_stats['new']}, "
+          f"прошлых {cover_stats['old']}, без обложки {cover_stats['none']}")
+
     covers_dir = os.path.join(root, "covers")
     missing = [n for n in store if not os.path.exists(os.path.join(root, n))]
-    if updated == page and not missing:
+    if updated == page and not missing and old_json == songs_json and old_slugs == slugs_json:
         print("Изменений нет.")
         return
 
@@ -311,7 +438,10 @@ def main(path):
     os.makedirs(covers_dir, exist_ok=True)
     for name, data in store.items():
         write_atomic(os.path.join(root, name), data)
-    # 2) Потом страница — атомарно: при обрыве index.html останется целым
+    # 2) Потом данные песен и страница — атомарно: при обрыве файлы останутся целыми
+    os.makedirs(os.path.dirname(data_path), exist_ok=True)
+    write_atomic(slugs_path, slugs_json.encode("utf-8"))
+    write_atomic(data_path, songs_json.encode("utf-8"))
     write_atomic(path, updated.encode("utf-8"))
     # 3) И только теперь убираем обложки, на которые страница больше не ссылается
     keep = {os.path.basename(n) for n in store}

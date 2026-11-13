@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Шаблон страницы песни. Метки {{…}} заполняет scripts/build_site.py при публикации. -->
+<title>{{PAGE_TITLE}}</title>
+<meta name="description" content="{{META_DESC}}">
+<meta name="theme-color" content="#07070f">
+<link rel="canonical" href="{{CANONICAL}}">
+<meta property="og:type" content="music.song">
+<meta property="og:site_name" content="Nevara">
+<meta property="og:title" content="{{PAGE_TITLE}}">
+<meta property="og:description" content="{{META_DESC}}">
+<meta property="og:url" content="{{CANONICAL}}">
+<meta property="og:image" content="{{OG_IMAGE}}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="{{OG_IMAGE}}">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{{JSONLD}}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Manrope:wght@400;500;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Manrope:wght@400;500;700&display=swap" rel="stylesheet"></noscript>
+<style>
+/* Song page: blurred cover as backdrop, player card + title, then description, lyrics and other songs. Single dark theme. */
+:root{
+  --night:#07070f;--asphalt:#12121f;--ink:#f3eefa;--muted:#a59fb8;
+  --neon:#ff2e88;--neon-btn:#d9126a;--sodium:#ffb547;--line:#2a2740;
+  --display:"Unbounded","Arial Black",system-ui,sans-serif;
+  --body:"Manrope","Segoe UI",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--night);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--sodium);outline-offset:3px;border-radius:4px}
+
+/* Backdrop: tiny pre-blurred cover, stretched; fades into the night colour */
+.backdrop{position:absolute;top:0;left:0;right:0;height:min(900px,100vh);z-index:-1;overflow:hidden;pointer-events:none;-webkit-user-select:none;user-select:none;background:radial-gradient(60% 50% at 30% 20%,rgba(217,18,106,.35),transparent 70%),radial-gradient(50% 45% at 80% 10%,rgba(110,40,170,.35),transparent 70%)}
+.backdrop img{width:100%;height:100%;object-fit:cover;opacity:.9;transform:scale(1.15)}
+.backdrop::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(7,7,15,.25) 0%,rgba(7,7,15,.55) 50%,var(--night) 100%)}
+
+header.bar{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:14px clamp(16px,5vw,56px)}
+.logo{font-family:var(--display);font-weight:900;letter-spacing:.18em;font-size:15px;padding:12px 0;text-decoration:none}
+.langs{display:flex;gap:2px;background:rgba(18,18,31,.72);border:1px solid var(--line);border-radius:999px;padding:3px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.langs button{font:700 13px/1 var(--body);letter-spacing:.08em;color:var(--muted);background:none;border:0;min-width:44px;min-height:44px;padding:0 10px;border-radius:999px;cursor:pointer}
+.langs button[aria-pressed="true"]{background:var(--neon-btn);color:#fff}
+
+main{max-width:1180px;margin:0 auto;padding:0 clamp(16px,5vw,56px) 40px;position:relative;isolation:isolate}
+.back{display:inline-flex;align-items:center;min-height:44px;font-weight:700;font-size:14px;color:var(--muted);text-decoration:none}
+@media (hover:hover){.back:hover{color:var(--ink)}}
+
+.song-head{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:clamp(20px,3vw,40px);align-items:center;margin:8px 0 56px}
+.cover{position:relative;aspect-ratio:16/9;min-height:200px;border-radius:16px;overflow:hidden;background:radial-gradient(120% 120% at 30% 20%,#3a1238 0%,#170b22 55%,#07070f 100%);box-shadow:0 18px 60px rgba(0,0,0,.5),0 0 40px rgba(255,46,136,.18)}
+.cover img,.cover iframe{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border:0;display:block}
+.play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;border:0;padding:0;background:linear-gradient(0deg,rgba(7,7,15,.45),rgba(7,7,15,.05) 60%);cursor:pointer;color:#fff;font:inherit}
+.play .pill{display:inline-flex;align-items:center;gap:10px;font:700 16px/1 var(--body);padding:14px 22px 14px 16px;border-radius:999px;background:var(--neon-btn);box-shadow:0 0 30px rgba(255,46,136,.6);transition:transform .2s}
+.play svg{width:22px;height:22px}
+.play:focus-visible .pill{outline:2px solid var(--sodium);outline-offset:3px}
+@media (hover:hover){.play:hover .pill{transform:scale(1.05)}}
+
+.kicker{font-weight:700;font-size:13px;letter-spacing:.22em;text-transform:uppercase;color:var(--sodium);margin:0 0 10px}
+h1{font-family:var(--display);font-weight:900;font-size:clamp(34px,5vw,60px);line-height:1;letter-spacing:-.01em;text-transform:uppercase;margin:0;overflow-wrap:anywhere;text-wrap:balance;text-shadow:0 0 24px rgba(255,46,136,.45)}
+.line{font-size:clamp(17px,2vw,21px);margin:16px 0 10px;text-wrap:balance}
+.tags{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 22px;color:var(--muted);font-size:14px}
+.tag{font-size:12px;font-weight:700;letter-spacing:.06em;color:var(--sodium);padding:5px 10px;border-radius:999px;border:1px solid rgba(255,181,71,.45)}
+.actions{display:flex;flex-wrap:wrap;gap:10px}
+.btn{display:inline-flex;align-items:center;gap:10px;font:700 15px/1 var(--body);text-decoration:none;padding:15px 20px;border-radius:12px;border:1px solid var(--line);background:rgba(18,18,31,.75);transition:transform .2s}
+.btn.primary{background:var(--neon-btn);border-color:var(--neon-btn);color:#fff;box-shadow:0 0 24px rgba(255,46,136,.45)}
+.btn svg{width:20px;height:20px}
+.btn .short{display:none}
+.version{margin:-8px 0 22px;font-size:14px;color:var(--muted)}
+.version a,.jump a{color:var(--sodium);font-weight:700;text-decoration:none}
+.jump{margin:6px 0 0}
+.jump a{display:inline-flex;align-items:center;min-height:44px;font-size:14px}
+@media (hover:hover){.version a:hover,.jump a:hover{text-decoration:underline}}
+@media (hover:hover){.btn:hover{transform:translateY(-1px);border-color:var(--neon)}}
+
+section{display:grid;grid-template-columns:minmax(140px,200px) minmax(0,1fr);gap:clamp(24px,3vw,48px);padding:48px 0;border-top:1px solid var(--line)}
+h2{font-family:var(--display);font-weight:700;font-size:14px;letter-spacing:.2em;text-transform:uppercase;color:var(--sodium);margin:6px 0 0}
+.about p{max-width:65ch;margin:0 0 14px;color:var(--ink)}
+.about p+p{color:var(--muted)}
+.lyrics{columns:2 300px;column-gap:48px}
+.lyrics p{break-inside:avoid;margin:0 0 22px;line-height:1.7}
+.others{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;list-style:none;margin:0;padding:0}
+.others a{display:flex;flex-direction:column;gap:2px;min-height:56px;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--asphalt);text-decoration:none}
+.others b{text-transform:uppercase;font-size:14px;overflow-wrap:anywhere}
+.others span{font-size:13px;color:var(--muted)}
+@media (hover:hover){.others a:hover{border-color:var(--neon)}}
+.all{margin-top:18px}
+
+footer{max-width:1068px;margin:0 auto;padding:28px 0 44px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;color:var(--muted);font-size:14px;border-top:1px solid var(--line)}
+
+@media (max-width:1180px){footer{margin:0 clamp(16px,5vw,56px)}}
+@media (max-width:760px){
+  .song-head{grid-template-columns:minmax(0,1fr);margin-bottom:40px}
+  section{grid-template-columns:minmax(0,1fr);gap:14px;padding:40px 0}
+  .lyrics{columns:1}
+}
+@media (max-width:480px){
+  .actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .actions .btn{justify-content:center;padding:15px 12px}
+  .btn .long{display:none}
+  .btn .short{display:inline}
+}
+@media (prefers-reduced-motion:reduce){.btn,.play .pill{transition:none}}
+</style>
+</head>
+<body>
+<div class="backdrop" aria-hidden="true">{{BACKDROP}}</div>
+
+<header class="bar">
+  <a class="logo" href="../">NEVARA</a>
+  <div class="langs" role="group" aria-label="Язык / Idioma / Language">
+    <button type="button" id="lang-ru" data-lang="ru" aria-pressed="true">RU</button>
+    <button type="button" id="lang-es" data-lang="es" aria-pressed="false">ES</button>
+    <button type="button" id="lang-en" data-lang="en" aria-pressed="false">EN</button>
+  </div>
+</header>
+
+<main>
+  <a class="back" href="../#songs" data-i18n="back">← Все песни</a>
+
+  <div class="song-head">
+    <div class="cover" data-video="{{VIDEO_ID}}">
+      {{COVER_IMG}}
+      <button type="button" class="play" data-title="Nevara — {{NAME}}"><span class="pill"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg><span data-i18n="listen">Слушать</span></span></button>
+    </div>
+    <div>
+      <p class="kicker">Nevara</p>
+      <h1>{{NAME}}</h1>
+      {{LINE}}
+      <p class="tags">{{TAGS}}<time datetime="{{DATE}}">{{DATE_SHOWN}}</time></p>
+      {{VERSIONS}}
+      <div class="actions">
+        <a class="btn primary" href="https://www.youtube.com/watch?v={{VIDEO_ID}}"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23 7.2a3 3 0 0 0-2.1-2.1C19 4.6 12 4.6 12 4.6s-7 0-8.9.5A3 3 0 0 0 1 7.2 31 31 0 0 0 .5 12a31 31 0 0 0 .5 4.8 3 3 0 0 0 2.1 2.1c1.9.5 8.9.5 8.9.5s7 0 8.9-.5a3 3 0 0 0 2.1-2.1 31 31 0 0 0 .5-4.8 31 31 0 0 0-.5-4.8zM9.7 15.1V8.9l5.8 3.1-5.8 3.1z"/></svg><span class="long" data-i18n="youtube">Смотреть на YouTube</span><span class="short">YouTube</span></a>
+        <a class="btn" href="https://www.youtube.com/@thisisnevara?sub_confirmation=1" data-i18n="subscribe">Подписаться</a>
+      </div>
+      {{JUMP}}
+    </div>
+  </div>
+
+  {{ABOUT}}
+  {{LYRICS}}
+
+  <section>
+    <h2 data-i18n="more">Ещё песни</h2>
+    <div>
+      <ul class="others">{{OTHERS}}</ul>
+      <p class="all"><a class="btn" href="../#songs" data-i18n="all">Все песни Nevara</a></p>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span>© Nevara · <span data-i18n="prod">продакшн Nevara Music</span></span>
+  <a href="https://www.youtube.com/@thisisnevara">YouTube / Nevara</a>
+</footer>
+
+<script>
+const T={
+  ru:{back:"← Все песни",listen:"Слушать",youtube:"Смотреть на YouTube",subscribe:"Подписаться",about:"О песне",lyrics:"Текст песни",more:"Ещё песни",all:"Все песни Nevara",prod:"продакшн Nevara Music",jump:"Текст песни ↓","ver-ru":"Русская версия","ver-es":"Испанская версия"},
+  es:{back:"← Todas las canciones",listen:"Escuchar",youtube:"Ver en YouTube",subscribe:"Suscribirse",about:"Sobre la canción",lyrics:"Letra",more:"Más canciones",all:"Todas las canciones",prod:"producción Nevara Music",jump:"Letra ↓","ver-ru":"Versión en ruso","ver-es":"Versión en español"},
+  en:{back:"← All songs",listen:"Listen",youtube:"Watch on YouTube",subscribe:"Subscribe",about:"About the song",lyrics:"Lyrics",more:"More songs",all:"All Nevara songs",prod:"production by Nevara Music",jump:"Lyrics ↓","ver-ru":"Russian version","ver-es":"Spanish version"}
+};
+const LOCALE={ru:"ru-RU",es:"es-ES",en:"en-GB"};
+function setLang(l){
+  document.documentElement.lang=l;
+  document.querySelectorAll("[data-i18n]").forEach(el=>{const v=T[l][el.dataset.i18n];if(v)el.textContent=v;});
+  document.querySelectorAll(".langs button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.lang===l));
+  try{const f=new Intl.DateTimeFormat(LOCALE[l],{day:"numeric",month:"long",year:"numeric",timeZone:"UTC"});
+    document.querySelectorAll("time[datetime]").forEach(el=>{const d=new Date(el.getAttribute("datetime")+"T00:00:00Z");if(!isNaN(d))el.textContent=f.format(d).replace(" г.","");});}catch(e){}
+  try{localStorage.setItem("nevara-lang",l)}catch(e){}
+}
+document.querySelectorAll(".langs button").forEach(b=>b.addEventListener("click",()=>setLang(b.dataset.lang)));
+let saved="ru";try{const s=localStorage.getItem("nevara-lang");if(s&&T[s])saved=s}catch(e){}
+setLang(saved);
+
+// Click-to-load player: nothing is requested from YouTube until the visitor presses play.
+document.addEventListener("click",e=>{
+  const btn=e.target.closest(".play");if(!btn)return;
+  const cover=btn.closest(".cover"),id=cover&&cover.dataset.video;
+  if(!id||!/^[A-Za-z0-9_-]{11}$/.test(id))return;
+  const f=document.createElement("iframe");
+  f.src="https://www.youtube-nocookie.com/embed/"+id+"?autoplay=1&rel=0&playsinline=1";
+  f.title=btn.dataset.title||"YouTube";
+  f.allow="autoplay; encrypted-media; picture-in-picture; fullscreen";
+  f.allowFullscreen=true;f.referrerPolicy="strict-origin-when-cross-origin";
+  cover.querySelectorAll("img,.play").forEach(n=>n.remove());cover.appendChild(f);f.focus();
+});
+</script>
+</body>
+</html>
