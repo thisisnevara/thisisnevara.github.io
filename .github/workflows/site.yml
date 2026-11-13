@@ -62,9 +62,9 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           echo "saved=true" >> "$GITHUB_OUTPUT"
 
-          # Новые песни или порядок — сохраняем index.html и обложки (covers/)
-          if [ "${{ steps.update.outcome }}" = "success" ] && [ -n "$(git status --porcelain -- index.html covers)" ]; then
-            git add -A -- index.html covers
+          # Новые песни или порядок — сохраняем index.html, обложки (covers/) и данные песен (data/)
+          if [ "${{ steps.update.outcome }}" = "success" ] && [ -n "$(git status --porcelain -- index.html covers data)" ]; then
+            git add -A -- index.html covers data
             git commit -m "Автообновление: релиз и популярные треки"
           fi
 
