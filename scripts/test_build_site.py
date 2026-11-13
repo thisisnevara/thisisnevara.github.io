@@ -292,5 +292,18 @@ class StanzaLangTests(unittest.TestCase):
                          '<p lang="es">Ven, ven para mí<br>esta noche</p>')
 
 
+
+class TitleLineTests(unittest.TestCase):
+    def test_sung_first_line_with_song_name_is_kept(self):
+        import build_site as b
+        st = b.clean_lyrics("Ven para mí…\nТы слышишь, как сердце\nТянется к тебе?\n", "VEN PARA MÍ")
+        self.assertEqual(st[0][0], "Ven para mí…")
+
+    def test_heading_line_is_removed(self):
+        import build_site as b
+        self.assertEqual(b.clean_lyrics("Два мира\n\nПервая строка\n", "ДВА МИРА"), [["Первая строка"]])
+        self.assertEqual(b.clean_lyrics("Пароль:\nПервая строка\n", "ПАРОЛЬ"), [["Первая строка"]])
+
+
 if __name__ == "__main__":
     unittest.main()
