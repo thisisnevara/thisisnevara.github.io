@@ -143,8 +143,8 @@ p{max-width:62ch;margin:0 0 14px;color:var(--muted)}
 .play:focus-visible span.pill{outline:2px solid var(--sodium);outline-offset:3px}
 @media (hover:hover){.play:hover span.pill{transform:scale(1.05)}}
 .cover iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block;background:#000}
-.cover iframe.yt{opacity:0;transition:opacity .3s}
-.cover iframe.yt.ready{opacity:1}
+.cover iframe.yt{opacity:0;pointer-events:none;transition:opacity .3s}
+.cover iframe.yt.ready{opacity:1;pointer-events:auto}
 .cover.playing{background:#000}
 .new-release .cover.playing:after{display:none}
 .subhead{font-family:var(--display);font-weight:700;font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink);margin:0 0 14px}
@@ -187,6 +187,12 @@ p{max-width:62ch;margin:0 0 14px;color:var(--muted)}
 @media (prefers-reduced-motion:reduce){.catalog .chev{transition:none}}
 .more{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
 .chip-link{display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border-radius:999px;border:1px solid var(--line);font-weight:700;font-size:14px;text-decoration:none;color:var(--ink)}
+/* На телефоне: главная кнопка во всю ширину, Shorts и Плейлисты — ровной парой под ней */
+@media (max-width:560px){
+  .more{display:grid;grid-template-columns:1fr 1fr}
+  .more .btn.primary{grid-column:1/-1;justify-content:center}
+  .more .chip-link{justify-content:center}
+}
 
 /* About */
 .styles{display:flex;flex-wrap:wrap;gap:10px;margin:22px 0 28px;padding:0;list-style:none}
@@ -490,7 +496,6 @@ document.querySelector('.hero').addEventListener('contextmenu',e=>{
     cover.dataset.mounted="1";
     const btn=cover.querySelector(".play");
     cover.dataset.title=(btn&&btn.dataset.title)||"Nevara";
-    if(btn)btn.remove();
     const f=document.createElement("iframe");
     f.src="https://www.youtube-nocookie.com/embed/"+id+"?rel=0&playsinline=1&cc_load_policy=3&enablejsapi=1&origin="+encodeURIComponent(location.origin);
     f.title=cover.dataset.title;
@@ -499,7 +504,7 @@ document.querySelector('.hero').addEventListener('contextmenu',e=>{
     f.className="yt";
     f.addEventListener("load",()=>{
       f.classList.add("ready");
-      setTimeout(()=>cover.querySelectorAll("img").forEach(n=>n.remove()),400);
+      setTimeout(()=>cover.querySelectorAll("img,.play").forEach(n=>n.remove()),400);
       // просим плеер сообщать о запуске — для статистики «Слушать»
       try{f.contentWindow.postMessage(JSON.stringify({event:"listening",id:1,channel:"widget"}),"*")}catch(e){}
     });
@@ -518,12 +523,24 @@ document.querySelector('.hero').addEventListener('contextmenu',e=>{
       }
     });
   });
+  // Плеер YouTube тяжёлый (~1 МБ), поэтому грузим его не сразу, а при первом действии посетителя:
+  // движение мыши, касание экрана, прокрутка или клавиша. Обычно к моменту нажатия он уже готов,
+  // а скорость открытия страницы остаётся прежней.
   const covers=[...document.querySelectorAll(".cover[data-video]")];
-  if(document.body.dataset.player==="now"||!("IntersectionObserver" in window)){covers.forEach(mount);return}
-  const io=new IntersectionObserver(es=>es.forEach(x=>{if(x.isIntersecting){io.unobserve(x.target);mount(x.target)}}),{rootMargin:"300px 0px"});
-  covers.forEach(c=>io.observe(c));
-  // если кто-то нажмёт нашу кнопку раньше, чем плеер загрузился
-  document.addEventListener("click",e=>{const b=e.target.closest(".play");if(b){const c=b.closest(".cover");if(c)mount(c)}});
+  let started=false;
+  function start(e){
+    // браузер сам присылает «движение мыши» при загрузке, хотя мышь стоит на месте, — его не считаем
+    if(e&&e.type==="pointermove"&&!e.movementX&&!e.movementY)return;
+    if(started)return;started=true;
+    EV.forEach(t=>removeEventListener(t,start,{passive:true}));
+    if(document.body.dataset.player==="now"||!("IntersectionObserver" in window)){covers.forEach(mount);return}
+    const io=new IntersectionObserver(es=>es.forEach(x=>{if(x.isIntersecting){io.unobserve(x.target);mount(x.target)}}),{rootMargin:"300px 0px"});
+    covers.forEach(c=>io.observe(c));
+  }
+  const EV=["pointermove","pointerdown","touchstart","scroll","keydown","wheel"];
+  EV.forEach(t=>addEventListener(t,start,{passive:true}));
+  // нажали нашу «Слушать» раньше, чем плеер загрузился, — ставим плеер сразу
+  document.addEventListener("click",e=>{const b=e.target.closest(".play");if(b){const c=b.closest(".cover");if(c){start();mount(c)}}});
 })();
 
 if ('IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: reduce)').matches){
