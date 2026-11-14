@@ -234,7 +234,15 @@ footer{max-width:1280px;margin:0 auto;padding:32px 0 48px;display:flex;flex-wrap
   .release b{font-size:14px}
   .release span{font-size:12px}
 }
-@media (max-width:480px){.btn.see-songs{display:none}}
+/* Телефон: «Слушать на YouTube» и «Подписаться» в одну строку (YouTube шире). Если не помещаются —
+   flex сам переносит их, и каждая растягивается на всю ширину. «Смотреть песни ↓» — текстовой ссылкой ниже. */
+@media (max-width:480px){
+  .cta{gap:10px}
+  .cta .btn{justify-content:center;white-space:nowrap;padding:14px 14px;min-height:50px}
+  .cta .btn.primary{flex:1.6 1 auto}
+  .cta .btn:not(.primary):not(.see-songs){flex:1 1 auto}
+  .cta .btn.see-songs{flex:1 1 100%;justify-content:flex-start;background:none;border:0;box-shadow:none;padding:0;min-height:44px;color:var(--sodium);font-size:14px}
+}
 /* Phones: the photo is scaled so the couple fills the screen width, and the text starts right under it.
    The two numbers are filled in at publish time from images/hero.json (couple_left / couple_right). */
 @media (max-width:480px){
