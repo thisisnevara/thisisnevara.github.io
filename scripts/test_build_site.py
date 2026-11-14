@@ -185,7 +185,7 @@ class SongPageTests(unittest.TestCase):
                 p = f.read()
             self.assertIn(f'data-website-id="{wid}"', p, name)
             self.assertIn('data-domains="thisisnevara.com"', p, name)
-            self.assertIn('"Слушать"', p, name)
+            self.assertIn('"Поделиться"', p, name)
         self.write("umami.txt", 'nevara"><script>')
         with self.assertRaises(bs.BuildError):
             bs.build(self.root, self.out)

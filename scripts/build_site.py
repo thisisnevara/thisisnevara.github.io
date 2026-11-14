@@ -31,7 +31,8 @@ WIDTHS = (800, 1200, 1600)
 COPY = ("favicon.svg", "CNAME")
 UMAMI = "umami.txt"      # Website ID из Umami Cloud (вида 1a2b3c4d-…); нет файла — нет счётчика
 
-# Нажатия, которые считаем в Umami: «Слушать», «Поделиться», переходы на YouTube и подписка.
+# Нажатия, которые считаем в Umami: «Поделиться», переходы на YouTube и подписка
+# («Слушать» отправляет сам плеер на странице, когда песня запущена).
 # Ссылкам ставим data-umami-event (Umami сам дождётся отправки перед переходом),
 # кнопкам «Слушать»/«Поделиться» — umami.track() при нажатии.
 UMAMI_EVENTS = """<script>
@@ -49,9 +50,9 @@ UMAMI_EVENTS = """<script>
     else mark(a,"YouTube: канал");
   });
   document.addEventListener("click",function(e){
-    var b=e.target.closest(".play,.share");if(!b||!window.umami)return;
+    var b=e.target.closest(".share");if(!b||!window.umami)return;
     var s=song(b);
-    try{umami.track(b.classList.contains("play")?"Слушать":"Поделиться",s?{song:s}:undefined)}catch(err){}
+    try{umami.track("Поделиться",s?{song:s}:undefined)}catch(err){}
   },true);
 })();
 </script>"""

@@ -143,6 +143,8 @@ p{max-width:62ch;margin:0 0 14px;color:var(--muted)}
 .play:focus-visible span.pill{outline:2px solid var(--sodium);outline-offset:3px}
 @media (hover:hover){.play:hover span.pill{transform:scale(1.05)}}
 .cover iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block;background:#000}
+.cover iframe.yt{opacity:0;transition:opacity .3s}
+.cover iframe.yt.ready{opacity:1}
 .cover.playing{background:#000}
 .new-release .cover.playing:after{display:none}
 .subhead{font-family:var(--display);font-weight:700;font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink);margin:0 0 14px}
@@ -477,21 +479,52 @@ document.querySelector('.hero').addEventListener('contextmenu',e=>{
   e.preventDefault();
 });
 
-// Click-to-load player: nothing is requested from YouTube until the visitor presses play.
-document.addEventListener('click',e=>{
-  const btn=e.target.closest('.play');if(!btn)return;
-  const cover=btn.closest('.cover'),id=cover&&cover.dataset.video;
-  if(!id||!/^[A-Za-z0-9_-]{11}$/.test(id))return;
-  const f=document.createElement('iframe');
-  f.src='https://www.youtube-nocookie.com/embed/'+id+'?autoplay=1&rel=0&playsinline=1&cc_load_policy=3';
-  f.title=btn.dataset.title||'YouTube';
-  f.allow='autoplay; encrypted-media; picture-in-picture; fullscreen';
-  f.allowFullscreen=true;
-  f.referrerPolicy='strict-origin-when-cross-origin';
-  cover.classList.add('playing');
-  cover.querySelectorAll('img,.play').forEach(n=>n.remove());
-  cover.appendChild(f);f.focus();
-});
+// Встроенный плеер YouTube: появляется на месте обложки без автозапуска — песню запускают
+// красной кнопкой самого YouTube, и такое прослушивание засчитывается просмотром на канале.
+// Пока плеер грузится, видна наша обложка; на главной плеер грузится, когда блок близко к экрану.
+(function(){
+  const YT=/^https:\/\/www\.youtube(-nocookie)?\.com$/;
+  function mount(cover){
+    if(cover.dataset.mounted)return;
+    const id=cover.dataset.video;if(!id||!/^[A-Za-z0-9_-]{11}$/.test(id))return;
+    cover.dataset.mounted="1";
+    const btn=cover.querySelector(".play");
+    cover.dataset.title=(btn&&btn.dataset.title)||"Nevara";
+    if(btn)btn.remove();
+    const f=document.createElement("iframe");
+    f.src="https://www.youtube-nocookie.com/embed/"+id+"?rel=0&playsinline=1&cc_load_policy=3&enablejsapi=1&origin="+encodeURIComponent(location.origin);
+    f.title=cover.dataset.title;
+    f.allow="encrypted-media; picture-in-picture; fullscreen";
+    f.allowFullscreen=true;f.referrerPolicy="strict-origin-when-cross-origin";
+    f.className="yt";
+    f.addEventListener("load",()=>{
+      f.classList.add("ready");
+      setTimeout(()=>cover.querySelectorAll("img").forEach(n=>n.remove()),400);
+      // просим плеер сообщать о запуске — для статистики «Слушать»
+      try{f.contentWindow.postMessage(JSON.stringify({event:"listening",id:1,channel:"widget"}),"*")}catch(e){}
+    });
+    cover.appendChild(f);
+  }
+  addEventListener("message",e=>{
+    if(!YT.test(e.origin)||typeof e.data!=="string")return;
+    let d;try{d=JSON.parse(e.data)}catch(err){return}
+    const playing=(d.event==="onStateChange"&&d.info===1)||(d.event==="infoDelivery"&&d.info&&d.info.playerState===1);
+    if(!playing)return;
+    document.querySelectorAll(".cover[data-mounted]").forEach(c=>{
+      const f=c.querySelector("iframe");
+      if(f&&f.contentWindow===e.source&&!c.dataset.played){
+        c.dataset.played="1";
+        if(window.umami)try{umami.track("Слушать",{song:c.dataset.title.replace(/^Nevara — /,"")})}catch(err){}
+      }
+    });
+  });
+  const covers=[...document.querySelectorAll(".cover[data-video]")];
+  if(document.body.dataset.player==="now"||!("IntersectionObserver" in window)){covers.forEach(mount);return}
+  const io=new IntersectionObserver(es=>es.forEach(x=>{if(x.isIntersecting){io.unobserve(x.target);mount(x.target)}}),{rootMargin:"300px 0px"});
+  covers.forEach(c=>io.observe(c));
+  // если кто-то нажмёт нашу кнопку раньше, чем плеер загрузился
+  document.addEventListener("click",e=>{const b=e.target.closest(".play");if(b){const c=b.closest(".cover");if(c)mount(c)}});
+})();
 
 if ('IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: reduce)').matches){
   const observer=new IntersectionObserver(entries=>entries.forEach(entry=>{if(entry.isIntersecting){entry.target.classList.add('revealed');observer.unobserve(entry.target)}}),{threshold:.08});
