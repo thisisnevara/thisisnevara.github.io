@@ -203,6 +203,10 @@ def clean_description(text, max_paragraphs=3):
             continue
         if lines[0].startswith("#") or len(lines) > 1:
             break
+        if lines[0].endswith(":"):                 # «Послушай также …:» — ссылка после двоеточия уже убрана
+            continue
+        if " | " in lines[0] and re.search(r"Nevara\s+[—–-]\s", lines[0]):
+            continue                               # строка-заголовок «Nevara — НАЗВАНИЕ | строчка», а не описание
         paragraphs.append(lines[0])
         if len(paragraphs) >= max_paragraphs:
             break

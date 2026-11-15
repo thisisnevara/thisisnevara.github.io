@@ -216,6 +216,10 @@ class UpdateTests(unittest.TestCase):
                          ["❄️🔥 «НОЯБРЬ НА ДВОИХ» — новая Latin Pop премьера 2026.", "Второй абзац о песне."])
         self.assertEqual(upd.clean_description(""), [])
         self.assertEqual(upd.clean_description("#Nevara #LatinPop"), [])
+        # строка-заголовок и «послушай также …:» (ссылка после неё убрана) в описание не попадают
+        text = ("🔥 Nevara — BAMBOLEO | ¡Que no pare este compás!\n\nLa versión en español.\n\n"
+                "🔥 Если тебе понравился «ПАРОЛЬ», послушай также «БАМ-БОЛЕО»:\nhttps://youtu.be/x\n\nЕщё абзац.")
+        self.assertEqual(upd.clean_description(text), ["La versión en español.", "Ещё абзац."])
 
     def test_song_data_and_links_to_song_pages(self):
         page = self.run_with(FakeYouTube())

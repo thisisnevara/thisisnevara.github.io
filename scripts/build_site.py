@@ -121,7 +121,11 @@ def clean_lyrics(text, name=""):
 
 def nice_name(name):
     """«НОЯБРЬ НА ДВОИХ» -> «Ноябрь на двоих» (для заголовка вкладки и поиска)."""
-    return name[:1].upper() + name[1:].lower() if name.isupper() else name
+    if not name.isupper():
+        return name
+    # заглавная буква — в начале и после « — » и « / »: «Мания — Испания», «Mi cometa / Моя комета»
+    parts = re.split(r"( [—–/] )", name.lower())
+    return "".join(p[:1].upper() + p[1:] if i % 2 == 0 else p for i, p in enumerate(parts))
 
 
 def load_settings(root):
@@ -336,6 +340,7 @@ def build_songs(root, tmp, og_fallback=SITE_URL + "nevara-og.jpg", analytics="")
 
         # Фон: обложка, уменьшенная и размытая заранее (файл ~2 КБ, без нагрузки на телефон)
         bg = ""             # без обложки — только фирменное свечение из CSS
+        og_name = ""
         cover = s.get("cover") or ""
         if cover and not re.fullmatch(r"covers/[\w-]+\.webp", cover):
             raise BuildError(f"неожиданный путь обложки: {cover!r}")
@@ -350,6 +355,19 @@ def build_songs(root, tmp, og_fallback=SITE_URL + "nevara-og.jpg", analytics="")
             with open(os.path.join(tmp, name_bg), "wb") as f:
                 f.write(raw)
             bg = "../" + name_bg
+            # Превью для мессенджеров и соцсетей: JPEG 1200×630 — WebP понимают не все (WhatsApp, VK, LinkedIn)
+            with Image.open(cover_path) as c:
+                og = c.convert("RGB")
+            k = max(1200 / og.width, 630 / og.height)
+            og = og.resize((round(og.width * k), round(og.height * k)), Image.LANCZOS)
+            x, y = (og.width - 1200) // 2, (og.height - 630) // 2
+            og = og.crop((x, y, x + 1200, y + 630))
+            data = io.BytesIO()
+            og.save(data, "JPEG", quality=82, optimize=True, progressive=True)
+            raw = data.getvalue()
+            og_name = f"img/og-{vid}-{hashlib.sha256(raw).hexdigest()[:6]}.jpg"
+            with open(os.path.join(tmp, og_name), "wb") as f:
+                f.write(raw)
 
         # Описание и текст
         about = ""
@@ -416,7 +434,7 @@ def build_songs(root, tmp, og_fallback=SITE_URL + "nevara-og.jpg", analytics="")
                                             "text": "\n\n".join("\n".join(st) for st in stanzas)}}
         values = {
             "{{PAGE_TITLE}}": esc(page_title), "{{META_DESC}}": esc(meta), "{{CANONICAL}}": url,
-            "{{OG_IMAGE}}": cover_url, "{{BACKDROP}}": f'<img src="{bg}" alt="" draggable="false">' if bg else "", "{{VIDEO_ID}}": vid, "{{COVER_IMG}}": (f'<img src="../{esc(cover)}" alt="Nevara — {esc(name)}" width="800" height="450" '
+            "{{OG_IMAGE}}": SITE_URL + og_name if og_name else og_fallback, "{{BACKDROP}}": f'<img src="{bg}" alt="" draggable="false">' if bg else "", "{{VIDEO_ID}}": vid, "{{COVER_IMG}}": (f'<img src="../{esc(cover)}" alt="Nevara — {esc(name)}" width="800" height="450" '
                               f'fetchpriority="high">' if has_cover else ""),
             "{{NAME}}": esc(name),
             "{{LINE}}": f'<p class="line">{esc(line)}</p>' if line else "",

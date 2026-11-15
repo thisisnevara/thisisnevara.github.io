@@ -171,6 +171,14 @@ class SongPageTests(unittest.TestCase):
         self.assertIn("· слушать песню</title>", p)
         self.assertIn('href="#lyrics"', self.page("parol"))
 
+    def test_share_preview_is_jpeg_1200x630(self):
+        from PIL import Image
+        bs.build(self.root, self.out)
+        m = re.search(r'og:image" content="https://thisisnevara.com/(img/og-C6ynOt9dk1M-[0-9a-f]{6}\.jpg)"', self.page("parol"))
+        self.assertTrue(m)
+        with Image.open(os.path.join(self.out, m.group(1))) as im:
+            self.assertEqual((im.format, im.size), ("JPEG", (1200, 630)))
+
     def test_analytics_only_with_code_file(self):
         self.write("404.html", "<html><head><meta name=robots content=noindex></head><body>404{{ANALYTICS}}</body></html>")
         bs.build(self.root, self.out)
@@ -341,6 +349,17 @@ class TitleLineTests(unittest.TestCase):
         # без двоеточия — это строка песни, даже если после неё пустая строка
         self.assertEqual(b.clean_lyrics("Два мира\n\nПервая строка\n", "ДВА МИРА"), [["Два мира"], ["Первая строка"]])
         self.assertEqual(b.clean_lyrics("Пароль:\nПервая строка\n", "ПАРОЛЬ"), [["Первая строка"]])
+
+
+
+class NiceNameTests(unittest.TestCase):
+    def test_capital_after_separators(self):
+        import build_site as b
+        self.assertEqual(b.nice_name("НОЯБРЬ НА ДВОИХ"), "Ноябрь на двоих")
+        self.assertEqual(b.nice_name("МАНИЯ — ИСПАНИЯ"), "Мания — Испания")
+        self.assertEqual(b.nice_name("MI COMETA / МОЯ КОМЕТА"), "Mi cometa / Моя комета")
+        self.assertEqual(b.nice_name("БАМ-БОЛЕО"), "Бам-болео")
+        self.assertEqual(b.nice_name("BAMBOLEO (Español)"), "BAMBOLEO (Español)")
 
 
 if __name__ == "__main__":
