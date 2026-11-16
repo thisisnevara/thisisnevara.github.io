@@ -110,7 +110,7 @@ class BuildTests(unittest.TestCase):
 SONG_TPL = """<html><head><title>{{PAGE_TITLE}}</title><meta name="description" content="{{META_DESC}}">
 <link rel="canonical" href="{{CANONICAL}}"><meta property="og:image" content="{{OG_IMAGE}}">
 <script type="application/ld+json">{{JSONLD}}</script></head><body>{{BACKDROP}}
-<div class="cover" data-video="{{VIDEO_ID}}">{{COVER_IMG}}</div><h1>{{NAME}}</h1>{{LINE}}{{VERSIONS}}{{JUMP}}
+<div class="cover" data-video="{{VIDEO_ID}}">{{COVER_IMG}}</div><h1 style="--w:{{NAME_W}}">{{NAME}}</h1>{{LINE}}{{VERSIONS}}{{JUMP}}
 <p>{{TAGS}}<time datetime="{{DATE}}">{{DATE_SHOWN}}</time></p>{{ABOUT}}{{LYRICS}}<ul>{{OTHERS}}</ul>{{ANALYTICS}}</body></html>"""
 
 LYRICS = """Пароль:
@@ -170,6 +170,11 @@ class SongPageTests(unittest.TestCase):
         self.assertIn("nevara-og.jpg?v=", p)             # превью для соцсетей — общая картинка сайта
         self.assertIn("· слушать песню</title>", p)
         self.assertIn('href="#lyrics"', self.page("parol"))
+
+    def test_title_width_is_longest_word(self):
+        bs.build(self.root, self.out)
+        self.assertIn('<h1 style="--w:6">ПАРОЛЬ</h1>', self.page("parol"))
+        self.assertIn('<h1 style="--w:8">НА МАКСИМУМ</h1>', self.page("na-maksimum"))
 
     def test_share_preview_is_jpeg_1200x630(self):
         from PIL import Image

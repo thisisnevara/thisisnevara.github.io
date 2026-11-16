@@ -437,6 +437,8 @@ def build_songs(root, tmp, og_fallback=SITE_URL + "nevara-og.jpg", analytics="")
             "{{OG_IMAGE}}": SITE_URL + og_name if og_name else og_fallback, "{{BACKDROP}}": f'<img src="{bg}" alt="" draggable="false">' if bg else "", "{{VIDEO_ID}}": vid, "{{COVER_IMG}}": (f'<img src="../{esc(cover)}" alt="Nevara — {esc(name)}" width="800" height="450" '
                               f'fetchpriority="high">' if has_cover else ""),
             "{{NAME}}": esc(name),
+            # длина самого длинного слова (дефис — место переноса): по ней страница подбирает размер названия
+            "{{NAME_W}}": str(max(4, max((len(w) for w in re.split(r"\s+|(?<=-)", name) if w), default=4))),
             "{{LINE}}": f'<p class="line">{esc(line)}</p>' if line else "",
             "{{TAGS}}": "".join(f'<span class="tag">{esc(g)}</span>' for g in genres),
             "{{DATE}}": esc(date),
