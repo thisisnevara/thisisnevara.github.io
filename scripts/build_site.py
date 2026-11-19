@@ -72,7 +72,7 @@ def analytics_tag(root):
         raise BuildError(f"{UMAMI}: нужен Website ID из Umami вида 1a2b3c4d-1a2b-1a2b-1a2b-1a2b3c4d5e6f, а не {code!r}")
     return (f'<script defer src="https://cloud.umami.is/script.js" data-website-id="{code}" '
             f'data-domains="thisisnevara.com"></script>\n' + UMAMI_EVENTS)
-COPY_DIRS = ("covers",)
+COPY_DIRS = ("covers", "fonts")
 PLACEHOLDER = re.compile(r"\{\{[A-Z_0-9]+\}\}")
 
 
@@ -119,6 +119,11 @@ def clean_lyrics(text, name=""):
     return stanzas
 
 
+def longest_word(name):
+    """Длина самого длинного слова в названии (после дефиса можно перенести строку), не меньше 4."""
+    return max(4, max((len(w) for w in re.split(r"\s+|(?<=-)", name) if w), default=4))
+
+
 def nice_name(name):
     """«НОЯБРЬ НА ДВОИХ» -> «Ноябрь на двоих» (для заголовка вкладки и поиска)."""
     if not name.isupper():
@@ -144,7 +149,8 @@ def load_settings(root):
     return left, right, og_top
 
 
-def build(root, out):
+def build(root, out, check=False):
+    """check=True — проверить ссылки готового сайта (при публикации); при битых ссылках сайт не публикуется."""
     from PIL import Image
 
     src = os.path.join(root, "images", "hero.jpg")
@@ -250,6 +256,15 @@ def build(root, out):
         p = os.path.join(root, d)
         if os.path.isdir(p):
             shutil.copytree(p, os.path.join(tmp, d))
+
+    # Битые ссылки и картинки — сайт не публикуем, на нём остаётся прошлая рабочая версия
+    if check:
+        problems = check_links(tmp)
+        if problems:
+            shutil.rmtree(tmp, ignore_errors=True)
+            more = f"\n  … и ещё {len(problems) - 20}" if len(problems) > 20 else ""
+            raise BuildError("битые ссылки на сайте:\n  " + "\n  ".join(problems[:20]) + more)
+        print("Ссылки проверены: битых нет")
 
     # Готово: подменяем результат целиком
     shutil.rmtree(out, ignore_errors=True)
@@ -484,6 +499,9 @@ def build_songs(root, tmp, og_fallback=SITE_URL + "nevara-og.jpg", analytics="")
     with open(tpl_path, encoding="utf-8") as f:
         template = f.read()
 
+    # Размер названия песни — один на всех страницах (см. {{NAME_W}} ниже)
+    title_w = max((longest_word(s["name"]) for s in songs), default=4)
+
     # Языковые версии одной песни: «БАМ-БОЛЕО» и «BAMBOLEO (Español)» дают одинаковый ключ «bamboleo»
     groups = {}
     for s in songs:
@@ -619,8 +637,9 @@ def build_songs(root, tmp, og_fallback=SITE_URL + "nevara-og.jpg", analytics="")
             "{{BACKDROP}}": f'<img src="{bg}" alt="" draggable="false">' if bg else "", "{{VIDEO_ID}}": vid, "{{COVER_IMG}}": (f'<img src="../{esc(cover)}" alt="Nevara — {esc(name)}" width="800" height="450" '
                               f'fetchpriority="high">' if has_cover else ""),
             "{{NAME}}": esc(name),
-            # длина самого длинного слова (дефис — место переноса): по ней страница подбирает размер названия
-            "{{NAME_W}}": str(max(4, max((len(w) for w in re.split(r"\s+|(?<=-)", name) if w), default=4))),
+            # одна длина для всех страниц — по самому длинному слову среди всех песен:
+            # названия везде одного размера, и самое длинное слово всё равно помещается в строку
+            "{{NAME_W}}": str(title_w),
             "{{LINE}}": f'<p class="line" lang="{"es" if is_spanish(line) else "ru"}">{esc(line)}</p>' if line else "",
             "{{TAGS}}": "".join(f'<span class="tag">{esc(g)}</span>' for g in genres),
             "{{DATE}}": esc(date),
@@ -648,6 +667,64 @@ def build_songs(root, tmp, og_fallback=SITE_URL + "nevara-og.jpg", analytics="")
     return pages
 
 
+# ---------- проверка ссылок ----------
+REF_ATTR = re.compile(r'\b(src|href|srcset|imagesrcset)="([^"]*)"')
+CSS_URL = re.compile(r"""url\(\s*['"]?([^'")]+)""")
+ID_ATTR = re.compile(r'\bid="([^"]+)"')
+
+
+def check_links(site):
+    """Каждая ссылка, картинка, шрифт и якорь (#…) внутри сайта ведёт на то, что существует.
+    Внешние адреса (https://…) не проверяются. Возвращает список проблем вида «страница: адрес — что не так»."""
+    site = os.path.abspath(site)
+    ids, problems = {}, []
+
+    def ids_of(path):
+        if path not in ids:
+            with open(path, encoding="utf-8") as f:
+                ids[path] = set(ID_ATTR.findall(f.read()))
+        return ids[path]
+
+    for dirpath, _, files in os.walk(site):
+        for fn in sorted(files):
+            if not fn.endswith((".html", ".css")):
+                continue
+            src = os.path.join(dirpath, fn)
+            with open(src, encoding="utf-8") as f:
+                text = f.read()
+            refs = []
+            if fn.endswith(".css"):
+                refs = CSS_URL.findall(text)
+            else:
+                # ссылки из скриптов и комментариев не считаем: проверяем только разметку
+                text = re.sub(r"<script\b[^>]*>.*?</script>|<!--.*?-->", "", text, flags=re.S)
+                for attr, val in REF_ATTR.findall(text):
+                    val = html.unescape(val)
+                    refs += [p.split()[0] for p in val.split(",") if p.strip()] if attr.endswith("srcset") else [val]
+            for ref in refs:
+                ref = ref.strip()
+                if not ref or ref.startswith("//") or re.match(r"[a-z][a-z0-9+.-]*:", ref, re.I):
+                    continue
+                path, _, frag = ref.partition("#")
+                path = path.split("?")[0]
+                if not path:
+                    target = src
+                elif path.startswith("/"):
+                    target = os.path.normpath(os.path.join(site, path.lstrip("/")))
+                else:
+                    target = os.path.normpath(os.path.join(dirpath, path))
+                if path.endswith("/") or os.path.isdir(target):
+                    target = os.path.join(target, "index.html")
+                where = os.path.relpath(src, site).replace(os.sep, "/")
+                if not (target == site or target.startswith(site + os.sep)):
+                    problems.append(f"{where}: {ref} — ведёт за пределы сайта")
+                elif not os.path.isfile(target):
+                    problems.append(f"{where}: {ref} — файла нет")
+                elif frag and target.endswith(".html") and frag not in ids_of(target):
+                    problems.append(f"{where}: {ref} — на странице нет места #{frag}")
+    return sorted(set(problems))
+
+
 def write_sitemap(tmp, pages):
     urls = [f"  <url><loc>{SITE_URL}</loc></url>"]
     # Без <lastmod>: дата выхода видео — не дата изменения страницы (текст могли добавить позже),
@@ -664,7 +741,7 @@ if __name__ == "__main__":
     root = sys.argv[1] if len(sys.argv) > 1 else "."
     out = sys.argv[2] if len(sys.argv) > 2 else os.path.join(root, "_site")
     try:
-        build(root, out)
+        build(root, out, check=True)
     except BuildError as e:
         print(f"ОШИБКА: {e}", file=sys.stderr)
         sys.exit(1)

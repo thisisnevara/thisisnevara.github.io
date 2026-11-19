@@ -172,10 +172,13 @@ class SongPageTests(unittest.TestCase):
         self.assertIn("· слушать песню</title>", p)
         self.assertIn('href="#lyrics"', self.page("parol"))
 
-    def test_title_width_is_longest_word(self):
+    def test_title_size_same_on_all_pages(self):
+        """Названия всех песен одного размера — по самому длинному слову среди всех («МАКСИМУМ», 8 букв)."""
         bs.build(self.root, self.out)
-        self.assertIn('<h1 style="--w:6">ПАРОЛЬ</h1>', self.page("parol"))
+        self.assertIn('<h1 style="--w:8">ПАРОЛЬ</h1>', self.page("parol"))
         self.assertIn('<h1 style="--w:8">НА МАКСИМУМ</h1>', self.page("na-maksimum"))
+        self.assertEqual(bs.longest_word("ЛАТИНО-ПАНИКА"), 7)       # после дефиса строка переносится
+        self.assertEqual(bs.longest_word("ДО УТРА"), 4)
 
     def test_share_preview_is_jpeg_1200x630(self):
         from PIL import Image
@@ -466,6 +469,47 @@ class HomeLanguageTests(unittest.TestCase):
         sm = self.built("sitemap.xml")
         for u in ("https://thisisnevara.com/", "https://thisisnevara.com/es/", "https://thisisnevara.com/en/"):
             self.assertIn(f"<loc>{u}</loc>", sm)
+
+
+class LinkCheckTests(unittest.TestCase):
+    def setUp(self):
+        self.site = tempfile.mkdtemp()
+        for d in ("song", "fonts", "img"):
+            os.makedirs(os.path.join(self.site, d))
+        self.write("img/a.webp", "x")
+        self.write("fonts/f.woff2", "x")
+        self.write("fonts/fonts.css", "@font-face{src:url(f.woff2)} @font-face{src:url('missing.woff2')}")
+        self.write("index.html", '<html><body><div id="all-songs"></div>'
+                                 '<a href="song/">ok</a><a href="#all-songs">ok</a><a href="https://x.com/">ext</a>'
+                                 '<img src="img/a.webp" srcset="img/a.webp 800w, img/b.webp 1600w">'
+                                 '<a href="nope/">bad</a><a href="#nowhere">bad</a>'
+                                 '<script>a.href="missing-in-script.html"</script></body></html>')
+        self.write("song/index.html", '<a href="../#all-songs">ok</a><a href="/fonts/fonts.css">ok</a>'
+                                      '<a href="../#gone">bad</a><a href="../../outside.html">bad</a>')
+
+    def tearDown(self):
+        shutil.rmtree(self.site)
+
+    def write(self, name, text):
+        with open(os.path.join(self.site, name), "w", encoding="utf-8") as f:
+            f.write(text)
+
+    def test_finds_every_kind_of_broken_link(self):
+        problems = bs.check_links(self.site)
+        self.assertEqual(problems, sorted([
+            "fonts/fonts.css: missing.woff2 — файла нет",
+            "index.html: img/b.webp — файла нет",
+            "index.html: nope/ — файла нет",
+            "index.html: #nowhere — на странице нет места #nowhere",
+            "song/index.html: ../#gone — на странице нет места #gone",
+            "song/index.html: ../../outside.html — ведёт за пределы сайта",
+        ]))
+
+    def test_real_site_has_no_broken_links(self):
+        """Весь настоящий сайт из этого репозитория собирается без единой битой ссылки."""
+        out = os.path.join(self.site, "_real")
+        bs.build(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."), out, check=True)
+        self.assertTrue(os.path.isfile(os.path.join(out, "fonts", "fonts.css")))
 
 
 class LocalizeHelpersTests(unittest.TestCase):
