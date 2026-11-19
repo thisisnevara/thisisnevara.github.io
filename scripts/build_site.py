@@ -234,6 +234,7 @@ def build(root, out, check=False, missing_lyrics=None):
             os.makedirs(os.path.join(tmp, lang))
             with open(os.path.join(tmp, lang, "index.html"), "w", encoding="utf-8") as f:
                 f.write(localized)
+            write_lang_manifest(root, tmp, lang)
             home_pages.append(f"{lang}/")
     else:
         print("Главные /es/ и /en/ пропущены: в index.html нет словаря переводов")
@@ -290,6 +291,27 @@ HERO_ALT = {"ru": "Nevara — дуэт на вечерней террасе с �
             "es": "Nevara — dúo en una terraza al anochecer con vistas a la ciudad",
             "en": "Nevara — a duo on an evening terrace overlooking the city at night"}
 HOME_LANGS = ("es", "en")          # кроме русской главной (/) собираются /es/ и /en/
+
+# Значок на домашнем экране Android открывает главную того языка, с которой его добавили:
+# у /es/ и /en/ свои манифесты (копия общего с другим start_url, id и описанием).
+MANIFEST = "manifest.webmanifest"
+MANIFEST_DESC = {"es": "Nevara — canciones, letras y videoclips",
+                 "en": "Nevara — songs, lyrics and music videos"}
+
+
+def write_lang_manifest(root, tmp, lang):
+    path = os.path.join(root, MANIFEST)
+    if not os.path.exists(path):
+        return
+    try:
+        with open(path, encoding="utf-8") as f:
+            m = json.load(f)
+    except ValueError as e:
+        raise BuildError(f"ошибка в {MANIFEST}: {e}")
+    m.update({"id": f"/{lang}/", "start_url": f"/{lang}/", "lang": lang, "description": MANIFEST_DESC[lang]})
+    with open(os.path.join(tmp, lang, MANIFEST), "w", encoding="utf-8") as f:
+        json.dump(m, f, ensure_ascii=False, indent=2)
+        f.write("\n")
 
 
 def load_page_langs(root, slugs):
@@ -423,6 +445,8 @@ def localize_home(page, lang, strings):
     page = re.sub(r'<meta property="og:locale" content="[^"]*">(?:\n<meta property="og:locale:alternate" content="[^"]*">)*',
                   lambda m: block, page, count=1)
     page = one_level_down(page)
+    # свой манифест (/es/manifest.webmanifest): значок с этой главной открывает её же
+    page = page.replace(f'rel="manifest" href="../{MANIFEST}"', f'rel="manifest" href="{MANIFEST}"')
     page = page.replace(' aria-current="page"', "")
     page = page.replace(f'data-lang="{lang}"', f'data-lang="{lang}" aria-current="page"', 1)
     return page
@@ -667,6 +691,7 @@ def build_songs(root, tmp, og_fallback=SITE_URL + "nevara-og.jpg", analytics="",
             page = translate_ui(page, ui[lang])
             # «Все песни» и логотип ведут на главную того же языка
             page = re.sub(r'data-home="([^"]*)" href="\.\./', lambda m: f'data-home="{m.group(1)}" href="../{lang}/', page)
+            page = page.replace(f'rel="manifest" href="../{MANIFEST}"', f'rel="manifest" href="../{lang}/{MANIFEST}"')
         os.makedirs(os.path.join(tmp, slug))
         with open(os.path.join(tmp, slug, "index.html"), "w", encoding="utf-8") as f:
             f.write(page)

@@ -488,7 +488,9 @@ class HomeLanguageTests(unittest.TestCase):
         self.assertRegex(p, r'<a class="release" href="\.\./[a-z0-9-]+/"')
         self.assertIn('href="#songs"', p)                                    # якорь на этой же странице
         self.assertIn('href="https://www.youtube.com/@thisisnevara"', p)     # полные адреса не тронуты
-        self.assertNotRegex(p, r'\b(?:src|href)="(?!https?:|/|#|\.\./)')
+        # единственное исключение — свой манифест в той же папке (/es/manifest.webmanifest)
+        self.assertIn('<link rel="manifest" href="manifest.webmanifest">', p)
+        self.assertNotRegex(p.replace('href="manifest.webmanifest"', ""), r'\b(?:src|href)="(?!https?:|/|#|\.\./)')
 
     def test_song_names_marked_with_language(self):
         p = self.built("index.html")
@@ -546,10 +548,21 @@ class LinkCheckTests(unittest.TestCase):
         self.assertTrue(os.path.isfile(os.path.join(out, "fonts", "fonts.css")))
         for name in ("manifest.webmanifest", "icon-192.png", "icon-512.png"):
             self.assertTrue(os.path.isfile(os.path.join(out, name)), name)
-        # манифест подключён везде: главные, страницы песен, 404
-        for page in ("index.html", "es/index.html", "en/index.html", "bam-boleo/index.html", "404.html"):
+        # манифест подключён везде, и у каждого языка свой: значок открывает главную этого языка
+        for page, href in (("index.html", "manifest.webmanifest"),
+                           ("es/index.html", "manifest.webmanifest"),
+                           ("en/index.html", "manifest.webmanifest"),
+                           ("bam-boleo/index.html", "../manifest.webmanifest"),
+                           ("bamboleo-espanol/index.html", "../es/manifest.webmanifest"),
+                           ("404.html", "/manifest.webmanifest")):
             with open(os.path.join(out, page), encoding="utf-8") as f:
-                self.assertIn('rel="manifest"', f.read(), page)
+                self.assertIn(f'<link rel="manifest" href="{href}">', f.read(), page)
+        for lang, start in (("", "/"), ("es", "/es/"), ("en", "/en/")):
+            with open(os.path.join(out, lang, "manifest.webmanifest"), encoding="utf-8") as f:
+                m = json.load(f)
+            self.assertEqual((m["start_url"], m["id"]), (start, start))
+            self.assertEqual(m["scope"], "/")              # песни на любом языке — внутри «приложения»
+            self.assertEqual(m["lang"], lang or "ru")
 
 
 class ManifestTests(unittest.TestCase):

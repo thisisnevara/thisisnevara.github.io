@@ -225,6 +225,8 @@ function setLang(l){
   document.querySelectorAll(".share").forEach(b=>{b.setAttribute("aria-label",T[l].share);b.title=T[l].share});
   // логотип и «Все песни» — на главную выбранного языка: /, /es/, /en/
   document.querySelectorAll("a[data-home]").forEach(a=>a.setAttribute("href",(l==="ru"?"../":"../"+l+"/")+a.dataset.home));
+  // значок «На главный экран» тоже открывает главную выбранного языка
+  const mf=document.querySelector('link[rel="manifest"]');if(mf)mf.setAttribute("href",(l==="ru"?"../":"../"+l+"/")+"manifest.webmanifest");
   try{const f=new Intl.DateTimeFormat(LOCALE[l],{day:"numeric",month:"long",year:"numeric",timeZone:"UTC"});
     document.querySelectorAll("time[datetime]").forEach(el=>{const d=new Date(el.getAttribute("datetime")+"T00:00:00Z");if(!isNaN(d))el.textContent=f.format(d).replace(" г.","");});}catch(e){}
   try{localStorage.setItem("nevara-lang",l)}catch(e){}

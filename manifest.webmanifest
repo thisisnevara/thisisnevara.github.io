@@ -2,6 +2,8 @@
   "name": "Nevara",
   "short_name": "Nevara",
   "description": "Nevara — песни, тексты и клипы",
+  "id": "/",
+  "lang": "ru",
   "start_url": "/",
   "scope": "/",
   "display": "browser",

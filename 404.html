@@ -58,7 +58,7 @@ p{color:var(--muted);max-width:34em}
   document.documentElement.lang=l;document.title=T[l].doc;
   document.querySelectorAll("[data-i18n]").forEach(el=>{const v=T[l][el.dataset.i18n];if(v)el.textContent=v});
   // ссылки — на главную выбранного языка: /es/, /en/
-  if(l!=="ru")document.querySelectorAll('a[href^="/"]').forEach(a=>a.setAttribute("href","/"+l+a.getAttribute("href")));
+  if(l!=="ru")document.querySelectorAll('a[href^="/"],link[rel="manifest"]').forEach(a=>a.setAttribute("href","/"+l+a.getAttribute("href")));
 })();
 </script>
 {{ANALYTICS}}
