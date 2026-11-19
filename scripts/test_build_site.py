@@ -1,4 +1,6 @@
 """Тесты сборки сайта. Запуск: python -m unittest discover -s scripts -v"""
+import contextlib
+import io
 import json
 import os
 import re
@@ -171,6 +173,15 @@ class SongPageTests(unittest.TestCase):
         self.assertIn("nevara-og.jpg?v=", p)             # превью для соцсетей — общая картинка сайта
         self.assertIn("· слушать песню</title>", p)
         self.assertIn('href="#lyrics"', self.page("parol"))
+
+    def test_songs_without_lyrics_are_listed(self):
+        missing = []
+        bs.build(self.root, self.out, missing_lyrics=missing)
+        self.assertEqual(missing, [("НА МАКСИМУМ", "lyrics/na-maksimum.txt")])   # у «ПАРОЛЬ» текст есть
+        self.write("lyrics/na-maksimum.txt", "Разгони мой пульс\n")
+        missing = []
+        bs.build(self.root, self.out, missing_lyrics=missing)
+        self.assertEqual(missing, [])                                            # файл добавили — предупреждения нет
 
     def test_title_size_same_on_all_pages(self):
         """Названия всех песен одного размера — по самому длинному слову среди всех («МАКСИМУМ», 8 букв)."""
@@ -525,6 +536,36 @@ class LinkCheckTests(unittest.TestCase):
         out = os.path.join(self.site, "_real")
         bs.build(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."), out, check=True)
         self.assertTrue(os.path.isfile(os.path.join(out, "fonts", "fonts.css")))
+
+
+class MissingLyricsReportTests(unittest.TestCase):
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.summary = os.path.join(self.dir, "summary.md")
+
+    def tearDown(self):
+        shutil.rmtree(self.dir)
+
+    def test_warnings_and_full_list_in_actions(self):
+        missing = [(f"ПЕСНЯ {i}", f"lyrics/pesnya-{i}.txt") for i in range(1, 13)]   # больше 10 — список полный
+        with contextlib.redirect_stdout(io.StringIO()):
+            lines = bs.report_missing_lyrics(missing, {"GITHUB_ACTIONS": "true", "GITHUB_STEP_SUMMARY": self.summary})
+        self.assertEqual(lines[0], "::warning title=Нет текста песни::У песни «ПЕСНЯ 1» нет текста: lyrics/pesnya-1.txt")
+        self.assertEqual(len(lines), 12)
+        with open(self.summary, encoding="utf-8") as f:
+            s = f.read()
+        self.assertIn("Песни без текста (12)", s)
+        self.assertIn("- «ПЕСНЯ 12» — добавьте файл `lyrics/pesnya-12.txt`", s)
+
+    def test_nothing_missing_nothing_written(self):
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(bs.report_missing_lyrics([], {"GITHUB_ACTIONS": "true", "GITHUB_STEP_SUMMARY": self.summary}), [])
+        self.assertFalse(os.path.exists(self.summary))
+
+    def test_plain_text_outside_actions(self):
+        with contextlib.redirect_stdout(io.StringIO()):
+            lines = bs.report_missing_lyrics([("НОВАЯ ПЕСНЯ", "lyrics/novaya-pesnya.txt")], {})
+        self.assertEqual(lines, ["ВНИМАНИЕ: У песни «НОВАЯ ПЕСНЯ» нет текста: lyrics/novaya-pesnya.txt"])
 
 
 class LocalizeHelpersTests(unittest.TestCase):

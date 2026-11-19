@@ -149,8 +149,9 @@ def load_settings(root):
     return left, right, og_top
 
 
-def build(root, out, check=False):
-    """check=True — проверить ссылки готового сайта (при публикации); при битых ссылках сайт не публикуется."""
+def build(root, out, check=False, missing_lyrics=None):
+    """check=True — проверить ссылки готового сайта (при публикации); при битых ссылках сайт не публикуется.
+    missing_lyrics — список, куда добавляются песни без текста (для предупреждения в Actions)."""
     from PIL import Image
 
     src = os.path.join(root, "images", "hero.jpg")
@@ -235,7 +236,7 @@ def build(root, out, check=False):
         print("Главные /es/ и /en/ пропущены: в index.html нет словаря переводов")
 
     pages = home_pages + build_songs(root, tmp, og_fallback=f"{SITE_URL}nevara-og.jpg?v={tag}",
-                                     analytics=values["{{ANALYTICS}}"])
+                                     analytics=values["{{ANALYTICS}}"], missing_lyrics=missing_lyrics)
 
     # Своя страница «не найдено» (GitHub Pages сам отдаёт её с кодом 404)
     p404 = os.path.join(root, "404.html")
@@ -485,7 +486,8 @@ def pick_others(s, songs, exclude=(), limit=6):
     return picks
 
 
-def build_songs(root, tmp, og_fallback=SITE_URL + "nevara-og.jpg", analytics=""):
+def build_songs(root, tmp, og_fallback=SITE_URL + "nevara-og.jpg", analytics="", missing_lyrics=None):
+    """missing_lyrics — список, куда добавляются (название, ожидаемый файл) песен без текста."""
     """Страница для каждой песни из data/songs.json. Возвращает список (адрес, дата) для sitemap."""
     from PIL import Image, ImageFilter
 
@@ -568,6 +570,8 @@ def build_songs(root, tmp, og_fallback=SITE_URL + "nevara-og.jpg", analytics="")
                 body = "".join(render_stanza(st) for st in stanzas)
                 lyrics_html = (f'<section id="lyrics"><h2 data-i18n="lyrics">Текст песни</h2>'
                                f'<div class="lyrics" lang="{lang}">{body}</div></section>')
+        if not has_lyrics and missing_lyrics is not None:
+            missing_lyrics.append((name, f"lyrics/{slug}.txt"))   # файла нет или он пустой
 
         my_lang = song_lang(name)
         versions = "".join(
@@ -737,11 +741,38 @@ def write_sitemap(tmp, pages):
         f.write(f"User-agent: *\nAllow: /\nSitemap: {SITE_URL}sitemap.xml\n")
 
 
+def report_missing_lyrics(missing, env=None):
+    """Песни без текста: жёлтое предупреждение в Actions на каждую (не ошибка — сайт публикуется)
+    и полный список в итогах запуска (GitHub показывает не больше 10 предупреждений на шаг).
+    Возвращает напечатанные строки. Вне GitHub Actions — обычные строки «ВНИМАНИЕ: …»."""
+    env = os.environ if env is None else env
+    in_actions = env.get("GITHUB_ACTIONS") == "true"
+    lines = []
+    for name, path in missing:
+        msg = f"У песни «{name}» нет текста: {path}"
+        if in_actions:
+            msg = msg.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+            lines.append(f"::warning title=Нет текста песни::{msg}")
+        else:
+            lines.append(f"ВНИМАНИЕ: {msg}")
+    for line in lines:
+        print(line)
+    summary = env.get("GITHUB_STEP_SUMMARY")
+    if missing and summary:
+        with open(summary, "a", encoding="utf-8") as f:
+            f.write(f"### ⚠️ Песни без текста ({len(missing)})\n\n")
+            f.write("".join(f"- «{name}» — добавьте файл `{path}`\n" for name, path in missing))
+            f.write("\nСайт опубликован. Предупреждение исчезнет при следующем запуске после добавления файла.\n")
+    return lines
+
+
 if __name__ == "__main__":
     root = sys.argv[1] if len(sys.argv) > 1 else "."
     out = sys.argv[2] if len(sys.argv) > 2 else os.path.join(root, "_site")
+    missing = []
     try:
-        build(root, out, check=True)
+        build(root, out, check=True, missing_lyrics=missing)
     except BuildError as e:
         print(f"ОШИБКА: {e}", file=sys.stderr)
         sys.exit(1)
+    report_missing_lyrics(missing)
