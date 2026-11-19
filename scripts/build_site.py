@@ -577,14 +577,9 @@ def build_songs(root, tmp, og_fallback=SITE_URL + "nevara-og.jpg", analytics="")
             meta = (s["description"][0] if s.get("description") else
                     f"«{nice}» — песня Nevara{in_genres}. "
                     + ("Слушайте песню и читайте текст." if has_lyrics else "Слушайте песню на YouTube."))
-        # Языковые версии одной песни ссылаются друг на друга (hreflang), если их страницы на разных языках
-        alts = {}
-        for o in groups[version_key(slug)]:
-            alts.setdefault(page_langs.get(o["slug"], "ru"), []).append(o["slug"])
-        alternates = ""
-        if len(alts) > 1 and all(len(v) == 1 for v in alts.values()):
-            alternates = "\n".join(f'<link rel="alternate" hreflang="{l}" href="{SITE_URL}{v[0]}/">'
-                                   for l, v in sorted(alts.items()))
+        # Языковые версии песни (БАМ-БОЛЕО / BAMBOLEO) — разные записи с разными видео и текстами,
+        # поэтому связаны только видимой ссылкой «Испанская версия», без hreflang: в поиске каждая
+        # показывается по своим запросам и не подменяет другую
         if len(meta) > 160:
             meta = meta[:157].rsplit(" ", 1)[0] + "…"
         url = f"{SITE_URL}{slug}/"
@@ -619,7 +614,7 @@ def build_songs(root, tmp, og_fallback=SITE_URL + "nevara-og.jpg", analytics="")
             # подпись к картинке превью (для незрячих и когда картинка не загрузилась)
             "{{OG_ALT}}": esc(HERO_ALT[lang] if not og_name else
                               f"Portada de la canción «{nice}» — Nevara" if es else f"Обложка песни «{nice}» — Nevara"),
-            "{{LANG}}": lang, "{{OG_LOCALE}}": OG_LOCALE[lang], "{{ALTERNATES}}": alternates,
+            "{{LANG}}": lang, "{{OG_LOCALE}}": OG_LOCALE[lang],
             "{{NAME_LANG}}": "es" if is_spanish(name) else "ru",
             "{{BACKDROP}}": f'<img src="{bg}" alt="" draggable="false">' if bg else "", "{{VIDEO_ID}}": vid, "{{COVER_IMG}}": (f'<img src="../{esc(cover)}" alt="Nevara — {esc(name)}" width="800" height="450" '
                               f'fetchpriority="high">' if has_cover else ""),

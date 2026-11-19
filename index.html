@@ -455,10 +455,9 @@ function formatDates(l){
   });
 }
 /* У каждого языка своя главная (/, /es/, /en/) — текст переведён уже при сборке.
-   Выбор языка запоминаем: страницы песен и «Все песни» откроются на нём же. */
-document.querySelectorAll(".langs a[data-lang]").forEach(a=>a.addEventListener("click",()=>{
-  try{localStorage.setItem("nevara-lang",a.dataset.lang)}catch(e){}
-}));
+   Запоминаем язык открытой главной (в том числе при переходе из поиска сразу на /es/):
+   кнопки на страницах песен и «Все песни» будут на нём же. Названия и тексты песен не меняются. */
+try{localStorage.setItem("nevara-lang",document.documentElement.lang)}catch(e){}
 /* Фильтр списка по жанру */
 document.addEventListener("click",e=>{
   const b=e.target.closest(".c-filter button");if(!b)return;

@@ -364,12 +364,15 @@ class SpanishPageTests(unittest.TestCase):
         self.assertIn('data-i18n="ver-es">Испанская версия<', p)
         self.assertIn('<h1 lang="ru"', p)
 
-    def test_language_versions_linked_with_hreflang(self):
+    def test_language_versions_linked_without_hreflang(self):
+        """Разные записи (своё видео, свой текст): видимая ссылка друг на друга есть, hreflang — нет,
+        чтобы в поиске одна песня не подменяла другую."""
         bs.build(self.root, self.out)
-        for slug in ("bamboleo-espanol", "bam-boleo"):
-            p = self.page(slug)
-            self.assertIn('<link rel="alternate" hreflang="es" href="https://thisisnevara.com/bamboleo-espanol/">', p)
-            self.assertIn('<link rel="alternate" hreflang="ru" href="https://thisisnevara.com/bam-boleo/">', p)
+        es, ru = self.page("bamboleo-espanol"), self.page("bam-boleo")
+        for p in (es, ru):
+            self.assertNotIn("hreflang", p)
+        self.assertIn('<a href="../bam-boleo/">БАМ-БОЛЕО</a>', es)
+        self.assertIn('<a href="../bamboleo-espanol/">BAMBOLEO (Español)</a>', ru)
 
     def test_without_languages_file_all_russian(self):
         os.remove(os.path.join(self.root, "data", "languages.json"))
@@ -432,6 +435,12 @@ class HomeLanguageTests(unittest.TestCase):
         visible = re.sub(r'<[^>]*\blang="ru"[^>]*>[^<]*', "", p.split("<body", 1)[1].split("<script>", 1)[0])
         for ru in ("Слушать", "Подписаться", "Смотреть", "Песни Nevara", "Все песни", "О проекте", "Популярные", "Наверх"):
             self.assertNotIn(ru, visible)
+
+    def test_home_remembers_its_language_on_open(self):
+        """Открыл /es/ (например, из Google) — язык запомнен, и кнопки на страницах песен будут испанскими."""
+        p = self.built("es/index.html")
+        self.assertIn('try{localStorage.setItem("nevara-lang",document.documentElement.lang)}catch(e){}', p)
+        self.assertIn('<html lang="es">', p)
 
     def test_english_home_title(self):
         p = self.built("en/index.html")
