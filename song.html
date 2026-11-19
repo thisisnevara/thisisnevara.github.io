@@ -145,7 +145,7 @@ footer{max-width:1068px;margin:0 auto;padding:28px 0 44px;display:flex;flex-wrap
 <div class="backdrop" aria-hidden="true">{{BACKDROP}}</div>
 
 <header class="bar">
-  <a class="logo" href="../">NEVARA</a>
+  <a class="logo" data-home="" href="../">NEVARA</a>
   <div class="langs" role="group" aria-label="Язык / Idioma / Language">
     <button type="button" id="lang-ru" data-lang="ru" aria-pressed="true">RU</button>
     <button type="button" id="lang-es" data-lang="es" aria-pressed="false">ES</button>
@@ -154,7 +154,7 @@ footer{max-width:1068px;margin:0 auto;padding:28px 0 44px;display:flex;flex-wrap
 </header>
 
 <main>
-  <a class="back" href="../#all-songs" data-i18n="back">← Все песни</a>
+  <a class="back" data-home="#all-songs" href="../#all-songs" data-i18n="back">← Все песни</a>
 
   <div class="song-head">
     <div class="cover" data-video="{{VIDEO_ID}}">
@@ -184,7 +184,7 @@ footer{max-width:1068px;margin:0 auto;padding:28px 0 44px;display:flex;flex-wrap
     <h2 data-i18n="more">Ещё песни</h2>
     <div>
       <ul class="others">{{OTHERS}}</ul>
-      <p class="all"><a class="btn" href="../#all-songs" data-i18n="all">Все песни Nevara</a></p>
+      <p class="all"><a class="btn" data-home="#all-songs" href="../#all-songs" data-i18n="all">Все песни Nevara</a></p>
     </div>
   </section>
 </main>
@@ -225,6 +225,8 @@ function setLang(l){
   document.querySelectorAll("[data-i18n]").forEach(el=>{const v=T[l][el.dataset.i18n];if(v)el.textContent=v;});
   document.querySelectorAll(".langs button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.lang===l));
   document.querySelectorAll(".share").forEach(b=>{b.setAttribute("aria-label",T[l].share);b.title=T[l].share});
+  // логотип и «Все песни» — на главную выбранного языка: /, /es/, /en/
+  document.querySelectorAll("a[data-home]").forEach(a=>a.setAttribute("href",(l==="ru"?"../":"../"+l+"/")+a.dataset.home));
   try{const f=new Intl.DateTimeFormat(LOCALE[l],{day:"numeric",month:"long",year:"numeric",timeZone:"UTC"});
     document.querySelectorAll("time[datetime]").forEach(el=>{const d=new Date(el.getAttribute("datetime")+"T00:00:00Z");if(!isNaN(d))el.textContent=f.format(d).replace(" г.","");});}catch(e){}
   try{localStorage.setItem("nevara-lang",l)}catch(e){}

@@ -178,7 +178,8 @@ def split_title(raw):
 TRANSLIT = dict(zip("абвгдеёжзийклмнопрстуфхцчшщъыьэюя",
                     ["a", "b", "v", "g", "d", "e", "e", "zh", "z", "i", "y", "k", "l", "m", "n", "o", "p", "r", "s",
                      "t", "u", "f", "kh", "ts", "ch", "sh", "shch", "", "y", "", "e", "yu", "ya"]))
-RESERVED = {"img", "covers", "images", "scripts", "lyrics", "data", "index", "sitemap", "robots", "favicon"}
+RESERVED = {"img", "covers", "images", "scripts", "lyrics", "data", "index", "sitemap", "robots", "favicon",
+            "es", "en"}     # es/, en/ — главные на испанском и английском
 
 
 def slugify(name):

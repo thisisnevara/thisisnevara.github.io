@@ -348,6 +348,9 @@ class SpanishPageTests(unittest.TestCase):
         self.assertIn('data-i18n="ver-ru">Versión en ruso<', p)
         self.assertIn('aria-label="Compartir"', p)
         self.assertIn('<div class="lyrics" lang="es">', p)
+        self.assertIn('data-home="#all-songs" href="../es/#all-songs"', p)      # «Все песни» — на испанскую главную
+        self.assertIn('data-home="" href="../es/"', p)
+        self.assertIn('data-home="#all-songs" href="../#all-songs"', self.page("bam-boleo"))
         visible = p.split("<body", 1)[1].split("<script>", 1)[0]      # видимая часть, без словаря переводов в скрипте
         for ru in ("Все песни", "Текст песни", "Подписаться", "Ещё песни", "продакшн", "Слушать", "О песне"):
             self.assertNotIn(ru, visible)
@@ -378,6 +381,98 @@ class SpanishPageTests(unittest.TestCase):
         self.write("data/languages.json", "{oops")
         with self.assertRaises(bs.BuildError):
             bs.build(self.root, self.out)
+
+
+REAL_INDEX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "index.html")
+
+
+class HomeLanguageTests(unittest.TestCase):
+    """Главные /es/ и /en/ собираются из настоящего index.html: перевод сразу в HTML, свои адреса и метки."""
+
+    def setUp(self):
+        from PIL import Image
+        self.root = tempfile.mkdtemp()
+        self.out = os.path.join(self.root, "_site")
+        os.makedirs(os.path.join(self.root, "images"))
+        Image.new("RGB", (1600, 900), "#802040").save(os.path.join(self.root, "images", "hero.jpg"))
+        with open(os.path.join(self.root, "images", "hero.json"), "w", encoding="utf-8") as f:
+            json.dump({"couple_left": 570, "couple_right": 1550}, f)
+        shutil.copy(REAL_INDEX, os.path.join(self.root, "index.html"))
+        bs.build(self.root, self.out)
+
+    def tearDown(self):
+        shutil.rmtree(self.root)
+
+    def built(self, name):
+        with open(os.path.join(self.out, name), encoding="utf-8") as f:
+            return f.read()
+
+    def test_three_home_pages_with_own_addresses(self):
+        for lang, url in (("ru", "https://thisisnevara.com/"), ("es", "https://thisisnevara.com/es/"),
+                          ("en", "https://thisisnevara.com/en/")):
+            with self.subTest(lang=lang):
+                p = self.built("index.html" if lang == "ru" else f"{lang}/index.html")
+                self.assertNotRegex(p, r"\{\{[A-Z_0-9]+\}\}")
+                self.assertIn(f'<html lang="{lang}">', p)
+                self.assertIn(f'<link rel="canonical" href="{url}">', p)
+                self.assertIn(f'<meta property="og:url" content="{url}">', p)
+                # взаимные hreflang на всех трёх
+                for l, u in (("ru", ""), ("es", "es/"), ("en", "en/"), ("x-default", "")):
+                    self.assertIn(f'<link rel="alternate" hreflang="{l}" href="https://thisisnevara.com/{u}">', p)
+                self.assertIn(f'data-lang="{lang}" aria-current="page"', p)
+                self.assertEqual(len(re.findall(r'<a [^>]*aria-current="page"', p)), 1)   # отмечен только текущий язык
+
+    def test_spanish_home_is_translated_in_html(self):
+        p = self.built("es/index.html")
+        self.assertIn("<title>Nevara — Latin Pop y Reggaeton en ruso y español</title>", p)
+        self.assertIn('og:locale" content="es_ES"', p)
+        self.assertIn('data-i18n="tagline">Dos voces, un ritmo.', p)
+        self.assertIn('aria-label="Género" data-i18n-label="genre"', p)
+        self.assertIn('aria-label="Arriba" data-i18n-label="to-top"', p)
+        visible = re.sub(r'<[^>]*\blang="ru"[^>]*>[^<]*', "", p.split("<body", 1)[1].split("<script>", 1)[0])
+        for ru in ("Слушать", "Подписаться", "Смотреть", "Песни Nevara", "Все песни", "О проекте", "Популярные", "Наверх"):
+            self.assertNotIn(ru, visible)
+
+    def test_english_home_title(self):
+        p = self.built("en/index.html")
+        self.assertIn("<title>Nevara — Latin Pop and Reggaeton in Russian and Spanish</title>", p)
+        self.assertIn('data-i18n="h-about">About<', p)
+
+    def test_relative_links_point_one_level_up(self):
+        p = self.built("es/index.html")
+        self.assertIn('href="../favicon.svg"', p)
+        self.assertIn('src="../img/hero-', p)
+        self.assertRegex(p, r'src="\.\./covers/[\w-]+\.webp"')
+        self.assertRegex(p, r'<a class="release" href="\.\./[a-z0-9-]+/"')
+        self.assertIn('href="#songs"', p)                                    # якорь на этой же странице
+        self.assertIn('href="https://www.youtube.com/@thisisnevara"', p)     # полные адреса не тронуты
+        self.assertNotRegex(p, r'\b(?:src|href)="(?!https?:|/|#|\.\./)')
+
+    def test_song_names_marked_with_language(self):
+        p = self.built("index.html")
+        self.assertRegex(p, r'<span class="c-name" lang="ru">ПАРОЛЬ</span>')
+        self.assertRegex(p, r'<span class="c-name" lang="es">VEN PARA MÍ</span>')
+
+    def test_sitemap_lists_language_homes(self):
+        sm = self.built("sitemap.xml")
+        for u in ("https://thisisnevara.com/", "https://thisisnevara.com/es/", "https://thisisnevara.com/en/"):
+            self.assertIn(f"<loc>{u}</loc>", sm)
+
+
+class LocalizeHelpersTests(unittest.TestCase):
+    def test_one_level_down(self):
+        page = ('<a href="./">x</a><a href="es/">x</a><a href="#top">x</a><a href="/abs">x</a>'
+                '<img src="img/a.webp" srcset="img/a-800.webp 800w, img/a-1600.webp 1600w">'
+                '<a href="https://x.com/y">x</a><a href="../z/">x</a>')
+        out = bs.one_level_down(page)
+        self.assertIn('<a href="../">', out)
+        self.assertIn('<a href="../es/">', out)
+        self.assertIn('<a href="#top">', out)
+        self.assertIn('<a href="/abs">', out)
+        self.assertIn('srcset="../img/a-800.webp 800w, ../img/a-1600.webp 1600w"', out)
+        self.assertIn('src="../img/a.webp"', out)
+        self.assertIn('href="https://x.com/y"', out)
+        self.assertIn('href="../z/"', out)
 
 
 class VersionTests(unittest.TestCase):

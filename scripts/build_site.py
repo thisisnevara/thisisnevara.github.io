@@ -205,17 +205,31 @@ def build(root, out):
         "{{PHOTO_W}}": f"{photo_w:.1f}vw",
         "{{PHOTO_C}}": f"{photo_c:.4f}",
         "{{ANALYTICS}}": analytics_tag(root),
+        "{{HREFLANG}}": hreflang_links(),
     }
     for key, val in values.items():
         page = page.replace(key, val)
     left_over = sorted(set(PLACEHOLDER.findall(page)))
     if left_over:
         raise BuildError(f"в index.html остались незаполненные метки: {', '.join(left_over)}")
+    page = mark_song_langs(page)
     with open(os.path.join(tmp, "index.html"), "w", encoding="utf-8") as f:
         f.write(page)
 
-    pages = build_songs(root, tmp, og_fallback=f"{SITE_URL}nevara-og.jpg?v={tag}",
-                        analytics=values["{{ANALYTICS}}"])
+    # Главные на других языках: /es/, /en/ — из той же страницы, с переводом из её словаря T
+    home_pages = []
+    if all(re.search(r"^\s*" + l + r":\{", page, re.M) for l in HOME_LANGS):
+        for lang in HOME_LANGS:
+            localized = localize_home(page, lang, ui_strings(page, lang, "index.html"))
+            os.makedirs(os.path.join(tmp, lang))
+            with open(os.path.join(tmp, lang, "index.html"), "w", encoding="utf-8") as f:
+                f.write(localized)
+            home_pages.append(f"{lang}/")
+    else:
+        print("Главные /es/ и /en/ пропущены: в index.html нет словаря переводов")
+
+    pages = home_pages + build_songs(root, tmp, og_fallback=f"{SITE_URL}nevara-og.jpg?v={tag}",
+                                     analytics=values["{{ANALYTICS}}"])
 
     # Своя страница «не найдено» (GitHub Pages сам отдаёт её с кодом 404)
     p404 = os.path.join(root, "404.html")
@@ -241,7 +255,8 @@ def build(root, out):
     shutil.rmtree(out, ignore_errors=True)
     os.replace(tmp, out)
     print(f"Фон: {', '.join(n for _, n in variants)}; превью nevara-og.jpg?v={tag}; "
-          f"телефон: --photo-w {photo_w:.1f}vw, --photo-c {photo_c:.4f}; страниц песен: {len(pages)}")
+          f"телефон: --photo-w {photo_w:.1f}vw, --photo-c {photo_c:.4f}; страниц песен: {len(pages) - len(home_pages)}; "
+          f"главные на других языках: {', '.join('/' + p for p in home_pages) or 'нет'}")
     return out
 
 
@@ -251,9 +266,11 @@ VERSION_LABEL = {"ru": "Русская версия", "es": "Испанская 
 # Язык страницы песни. По умолчанию русский; песни из data/languages.json получают страницу
 # целиком на этом языке: подписи, заголовок, описание для поиска, <html lang>.
 LANGS_FILE = os.path.join("data", "languages.json")
-OG_LOCALE = {"ru": "ru_RU", "es": "es_ES"}
+OG_LOCALE = {"ru": "ru_RU", "es": "es_ES", "en": "en_US"}
 HERO_ALT = {"ru": "Nevara — дуэт на вечерней террасе с видом на ночной город",
-            "es": "Nevara — dúo en una terraza al anochecer con vistas a la ciudad"}
+            "es": "Nevara — dúo en una terraza al anochecer con vistas a la ciudad",
+            "en": "Nevara — a duo on an evening terrace overlooking the city at night"}
+HOME_LANGS = ("es", "en")          # кроме русской главной (/) собираются /es/ и /en/
 
 
 def load_page_langs(root, slugs):
@@ -272,7 +289,7 @@ def load_page_langs(root, slugs):
         if lang.startswith("_"):                  # «_» — комментарий для людей
             continue
         if lang not in OG_LOCALE or lang == "ru" or not isinstance(items, list):
-            raise BuildError(f"{LANGS_FILE}: неизвестный язык {lang!r} (можно: es)")
+            raise BuildError(f"{LANGS_FILE}: неизвестный язык {lang!r} (можно: es, en)")
         for slug in items:
             if slug in slugs:
                 langs[slug] = lang
@@ -281,12 +298,12 @@ def load_page_langs(root, slugs):
     return langs
 
 
-def ui_strings(template, lang):
-    """Подписи интерфейса на нужном языке — из словаря T в самом шаблоне song.html,
+def ui_strings(template, lang, source="song.html"):
+    """Подписи интерфейса на нужном языке — из словаря T в самом шаблоне (song.html, index.html),
     чтобы переводы хранились в одном месте и на странице, и при сборке."""
     m = re.search(r"^\s*" + re.escape(lang) + r":\{(.*)\}\s*,?\s*$", template, re.M)
     if not m:
-        raise BuildError(f"в song.html нет переводов для языка {lang!r}")
+        raise BuildError(f"в {source} нет переводов для языка {lang!r}")
     pairs = re.findall(r'(?:"([\w-]+)"|(\w+)):"((?:[^"\\]|\\.)*)"', m.group(1))
     return {a or b: json.loads(f'"{v}"') for a, b, v in pairs}
 
@@ -303,6 +320,92 @@ def translate_ui(page, strings):
     page = I18N_TEXT.sub(sub, page)
     if "share" in strings:
         page = page.replace('aria-label="Поделиться"', f'aria-label="{esc(strings["share"])}"')
+    # подписи для экранного диктора: aria-label="…" data-i18n-label="ключ"
+    page = re.sub(r'aria-label="[^"]*"(\s+data-i18n-label="([\w-]+)")',
+                  lambda m: f'aria-label="{esc(strings[m.group(2)])}"{m.group(1)}' if m.group(2) in strings else m.group(0),
+                  page)
+    return page
+
+
+# ---------- главные страницы на других языках ----------
+def hreflang_links():
+    """Взаимные ссылки трёх главных: поисковик понимает, что это один сайт на разных языках."""
+    links = [f'<link rel="alternate" hreflang="ru" href="{SITE_URL}">']
+    links += [f'<link rel="alternate" hreflang="{l}" href="{SITE_URL}{l}/">' for l in HOME_LANGS]
+    links.append(f'<link rel="alternate" hreflang="x-default" href="{SITE_URL}">')
+    return "\n".join(links)
+
+
+URL_ATTR = re.compile(r'\b(src|href|srcset|imagesrcset)="([^"]*)"')
+
+
+def one_level_down(page):
+    """Страница лежит на уровень глубже (/es/): относительные адреса картинок и ссылок получают «../».
+    Полные адреса (https://…), абсолютные (/…) и якоря (#…) не меняются."""
+    def fix(u):
+        if not u or re.match(r"(?:[a-z][a-z0-9+.-]*:|/|#|\.\./)", u, re.I):
+            return u
+        return "../" if u == "./" else "../" + u
+
+    def sub(m):
+        attr, val = m.group(1), m.group(2)
+        if attr.endswith("srcset"):
+            val = ", ".join(" ".join([fix(p.split()[0])] + p.split()[1:]) for p in val.split(",") if p.strip())
+        else:
+            val = fix(val)
+        return f'{attr}="{val}"'
+    return URL_ATTR.sub(sub, page)
+
+
+def text_lang(text):
+    """Язык строки песни: кириллица — русский, латиница — испанский (названия песен Nevara)."""
+    if re.search("[а-яё]", text, re.I):
+        return "ru"
+    return "es" if re.search("[a-zñáéíóúü]", text, re.I) else ""
+
+
+SONG_TEXT = re.compile(r'(<(?:span class="c-name"|span class="c-sub"|h3|p class="sub"|b))(>)([^<]*)')
+AUTO_BLOCK = re.compile(r"(<!-- AUTO:RELEASES:START.*?<!-- AUTO:RELEASES:END -->)", re.S)
+
+
+def mark_song_langs(page):
+    """Названия и строки песен на главной помечаются своим языком (lang="ru"/"es"):
+    экранный диктор читает их правильно и на испанской, и на английской главной."""
+    def mark(m):
+        lang = text_lang(m.group(3))
+        return f'{m.group(1)} lang="{lang}"{m.group(2)}{m.group(3)}' if lang else m.group(0)
+    return AUTO_BLOCK.sub(lambda b: SONG_TEXT.sub(mark, b.group(1)), page)
+
+
+def localize_home(page, lang, strings):
+    """Русская главная -> главная на другом языке: переведённый текст сразу в HTML,
+    свой <title>, описание, canonical, og:locale и адреса на уровень глубже."""
+    url = f"{SITE_URL}{lang}/"
+    page = translate_ui(page, strings)
+    page = page.replace('<html lang="ru">', f'<html lang="{lang}">', 1)
+    for pattern, value in (
+        (r'(<title>)[^<]*(</title>)', strings.get("doc-title")),
+        (r'(<meta name="description" content=")[^"]*(")', strings.get("meta-desc")),
+        (r'(<meta property="og:title" content=")[^"]*(")', strings.get("og-title")),
+        (r'(<meta property="og:description" content=")[^"]*(")', strings.get("og-desc")),
+        (r'(<meta property="og:url" content=")[^"]*(")', url),
+        (r'(<link rel="canonical" href=")[^"]*(")', url),
+        (r'(<meta property="og:image:alt" content=")[^"]*(")', HERO_ALT[lang]),
+        (r'(<meta name="twitter:image:alt" content=")[^"]*(")', HERO_ALT[lang]),
+    ):
+        if not value:
+            raise BuildError(f"index.html: нет перевода для {pattern!r} ({lang})")
+        page, n = re.subn(pattern, lambda m: m.group(1) + esc(value) + m.group(2), page, count=1)
+        if n != 1:
+            raise BuildError(f"index.html: не найдено место для {pattern!r}")
+    locales = [OG_LOCALE[lang]] + [OG_LOCALE[l] for l in OG_LOCALE if l != lang]
+    block = "\n".join([f'<meta property="og:locale" content="{locales[0]}">'] +
+                      [f'<meta property="og:locale:alternate" content="{l}">' for l in locales[1:]])
+    page = re.sub(r'<meta property="og:locale" content="[^"]*">(?:\n<meta property="og:locale:alternate" content="[^"]*">)*',
+                  lambda m: block, page, count=1)
+    page = one_level_down(page)
+    page = page.replace(' aria-current="page"', "")
+    page = page.replace(f'data-lang="{lang}"', f'data-lang="{lang}" aria-current="page"', 1)
     return page
 
 
@@ -541,6 +644,8 @@ def build_songs(root, tmp, og_fallback=SITE_URL + "nevara-og.jpg", analytics="")
             raise BuildError(f"в song.html остались незаполненные метки: {', '.join(left_over)}")
         if lang in ui:
             page = translate_ui(page, ui[lang])
+            # «Все песни» и логотип ведут на главную того же языка
+            page = re.sub(r'data-home="([^"]*)" href="\.\./', lambda m: f'data-home="{m.group(1)}" href="../{lang}/', page)
         os.makedirs(os.path.join(tmp, slug))
         with open(os.path.join(tmp, slug, "index.html"), "w", encoding="utf-8") as f:
             f.write(page)

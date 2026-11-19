@@ -15,6 +15,7 @@
 <meta property="og:locale:alternate" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="canonical" href="https://thisisnevara.com/">
+{{HREFLANG}}
 <meta property="og:url" content="https://thisisnevara.com/">
 <meta property="og:image" content="{{OG_IMAGE}}">
 <meta property="og:image:width" content="1200">
@@ -35,7 +36,7 @@
       "url": "https://thisisnevara.com/",
       "name": "Nevara",
       "alternateName": ["Nevara Music", "thisisnevara"],
-      "inLanguage": "ru"
+      "inLanguage": ["ru", "es", "en"]
     },
     {
       "@type": "MusicGroup",
@@ -94,8 +95,10 @@ header.bar{position:absolute;top:0;left:0;right:0;z-index:5;display:flex;justify
 @media (hover:hover){.to-top:hover{background:var(--neon-btn)}}
 @media (prefers-reduced-motion:reduce){.to-top{transition:none;transform:none}}
 .langs{display:flex;gap:2px;background:rgba(18,18,31,.72);border:1px solid var(--line);border-radius:999px;padding:3px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
-.langs button{font:700 13px/1 var(--body);letter-spacing:.08em;color:var(--muted);background:none;border:0;min-width:44px;min-height:44px;padding:0 10px;border-radius:999px;cursor:pointer}
-.langs button[aria-pressed="true"]{background:var(--neon-btn);color:#fff}
+/* Языки главной — ссылки на отдельные адреса: / (RU), /es/, /en/ */
+.langs a{display:inline-flex;align-items:center;justify-content:center;font:700 13px/1 var(--body);letter-spacing:.08em;color:var(--muted);text-decoration:none;min-width:44px;min-height:44px;padding:0 10px;border-radius:999px}
+.langs a[aria-current="page"]{background:var(--neon-btn);color:#fff}
+@media (hover:hover){.langs a:not([aria-current="page"]):hover{color:var(--ink)}}
 
 /* Hero with a static photo */
 .hero{position:relative;min-height:max(620px,min(860px,100svh));display:flex;align-items:center;overflow:hidden;padding:110px clamp(16px,5vw,56px) 72px;background:var(--night);isolation:isolate}
@@ -300,11 +303,11 @@ html{scroll-behavior:smooth}
 
 <header class="bar">
   <span class="logo">NEVARA</span>
-  <div class="langs" role="group" aria-label="Язык / Idioma / Language">
-    <button type="button" id="lang-ru" data-lang="ru" aria-pressed="true">RU</button>
-    <button type="button" id="lang-es" data-lang="es" aria-pressed="false">ES</button>
-    <button type="button" id="lang-en" data-lang="en" aria-pressed="false">EN</button>
-  </div>
+  <nav class="langs" aria-label="Язык / Idioma / Language">
+    <a href="./" hreflang="ru" lang="ru" data-lang="ru" aria-current="page">RU</a>
+    <a href="es/" hreflang="es" lang="es" data-lang="es">ES</a>
+    <a href="en/" hreflang="en" lang="en" data-lang="en">EN</a>
+  </nav>
 </header>
 
 <div class="hero" id="top">
@@ -440,9 +443,9 @@ html{scroll-behavior:smooth}
   go();addEventListener("load",()=>{go();requestAnimationFrame(go)});
 }catch(e){}})();
 const T={
-  ru:{tagline:"Два голоса. Один ритм. Русский и испанский, латинская энергия и музыка, которую хочется включить громче.",listen:"Слушать на YouTube",subscribe:"Подписаться","see-songs":"Смотреть песни ↓","h-songs":"Песни Nevara","songs-lead":"Найди свой ритм.","songs-intro":"Выбирай песню и слушай на официальном YouTube-канале Nevara.",new:"НОВЫЙ РЕЛИЗ",latest:"ПОСЛЕДНИЙ РЕЛИЗ","watch-new":"Смотреть на YouTube","listen-here":"Слушать","player-loading":"Загружаем плеер…","player-fallback":"Смотреть на YouTube","to-top":"Наверх","open-song":"Открыть песню\u00a0→","song-page":"Текст и описание\u00a0→","doc-title":"Nevara — Latin Pop и Reggaeton на русском и испанском языках",catalog:"Все песни Nevara","all-genres":"Все",genre:"Жанр",popular:"Популярные треки","all-songs":"Все песни на YouTube ↗",playlists:"Плейлисты ↗","h-about":"О проекте","about-lead":"Два языка, один ритм. Nevara соединяет русскую лирику с латинской энергией.","about-1":"Музыка для дороги, танцев и моментов, которые хочется повторить. В песнях звучат русский и испанский — иногда вместе, иногда по отдельности.","about-2":"Продакшн: Nevara Music.","lang-ru":"Русский","subscribe-long":"Подписаться на канал",prod:"продакшн Nevara Music"},
-  es:{tagline:"Dos voces, un ritmo. Ruso y español, energía latina y música para subir el volumen.",listen:"Escuchar en YouTube",subscribe:"Suscribirse","see-songs":"Ver canciones ↓","h-songs":"Canciones de Nevara","songs-lead":"Encuentra tu ritmo.","songs-intro":"Elige una canción y escúchala en el canal oficial de Nevara en YouTube.",new:"NUEVO LANZAMIENTO",latest:"ÚLTIMO LANZAMIENTO","watch-new":"Ver en YouTube","listen-here":"Escuchar","player-loading":"Cargando el reproductor…","player-fallback":"Ver en YouTube","to-top":"Arriba","open-song":"Abrir canción\u00a0→","song-page":"Letra y descripción\u00a0→","doc-title":"Nevara — Latin Pop y Reggaeton en ruso y español",catalog:"Todas las canciones","all-genres":"Todas",genre:"Género",popular:"Canciones populares","all-songs":"Todas las canciones en YouTube ↗",playlists:"Playlists ↗","h-about":"El proyecto","about-lead":"Dos idiomas, un ritmo. Nevara une letras en ruso con energía latina.","about-1":"Música para viajar, bailar y volver a sentir. Las canciones suenan en ruso y en español, juntos o por separado.","about-2":"Producción: Nevara Music.","lang-ru":"Ruso","subscribe-long":"Suscribirse al canal",prod:"producción Nevara Music"},
-  en:{tagline:"Two voices. One rhythm. Russian and Spanish, Latin energy and music to turn up loud.",listen:"Listen on YouTube",subscribe:"Subscribe","see-songs":"Explore songs ↓","h-songs":"Nevara songs","songs-lead":"Find your rhythm.","songs-intro":"Choose a song and listen on the official Nevara YouTube channel.",new:"NEW RELEASE",latest:"LATEST RELEASE","watch-new":"Watch on YouTube","listen-here":"Listen","player-loading":"Loading player…","player-fallback":"Watch on YouTube","to-top":"Back to top","open-song":"Open song\u00a0→","song-page":"Lyrics and story\u00a0→","doc-title":"Nevara — Latin Pop and Reggaeton in Russian and Spanish",catalog:"All Nevara songs","all-genres":"All",genre:"Genre",popular:"Popular tracks","all-songs":"All songs on YouTube ↗",playlists:"Playlists ↗","h-about":"About","about-lead":"Two languages, one rhythm. Nevara brings Russian lyrics and Latin energy together.","about-1":"Music for the road, the dance floor and moments worth repeating. Songs in Russian and Spanish, together or apart.","about-2":"Production: Nevara Music.","lang-ru":"Russian","subscribe-long":"Subscribe to the channel",prod:"production by Nevara Music"}
+  ru:{tagline:"Два голоса. Один ритм. Русский и испанский, латинская энергия и музыка, которую хочется включить громче.",listen:"Слушать на YouTube",subscribe:"Подписаться","see-songs":"Смотреть песни ↓","h-songs":"Песни Nevara","songs-lead":"Найди свой ритм.","songs-intro":"Выбирай песню и слушай на официальном YouTube-канале Nevara.",new:"НОВЫЙ РЕЛИЗ",latest:"ПОСЛЕДНИЙ РЕЛИЗ","watch-new":"Смотреть на YouTube","listen-here":"Слушать","player-loading":"Загружаем плеер…","player-fallback":"Смотреть на YouTube","to-top":"Наверх","open-song":"Открыть песню\u00a0→","song-page":"Текст и описание\u00a0→","doc-title":"Nevara — Latin Pop и Reggaeton на русском и испанском языках","meta-desc":"Nevara (Nevara Music) — Latin Pop и Reggaeton на русском и испанском. Новые песни, клипы и полный список треков с официального YouTube-канала @thisisnevara.","og-title":"Nevara — Latin Pop и Reggaeton на двух языках","og-desc":"Русский и испанский вокал, латинские ритмы и музыка, которую хочется включить громче.",catalog:"Все песни Nevara","all-genres":"Все",genre:"Жанр",popular:"Популярные треки","all-songs":"Все песни на YouTube ↗",playlists:"Плейлисты ↗","h-about":"О проекте","about-lead":"Два языка, один ритм. Nevara соединяет русскую лирику с латинской энергией.","about-1":"Музыка для дороги, танцев и моментов, которые хочется повторить. В песнях звучат русский и испанский — иногда вместе, иногда по отдельности.","about-2":"Продакшн: Nevara Music.","lang-ru":"Русский","subscribe-long":"Подписаться на канал",prod:"продакшн Nevara Music"},
+  es:{tagline:"Dos voces, un ritmo. Ruso y español, energía latina y música para subir el volumen.",listen:"Escuchar en YouTube",subscribe:"Suscribirse","see-songs":"Ver canciones ↓","h-songs":"Canciones de Nevara","songs-lead":"Encuentra tu ritmo.","songs-intro":"Elige una canción y escúchala en el canal oficial de Nevara en YouTube.",new:"NUEVO LANZAMIENTO",latest:"ÚLTIMO LANZAMIENTO","watch-new":"Ver en YouTube","listen-here":"Escuchar","player-loading":"Cargando el reproductor…","player-fallback":"Ver en YouTube","to-top":"Arriba","open-song":"Abrir canción\u00a0→","song-page":"Letra y descripción\u00a0→","doc-title":"Nevara — Latin Pop y Reggaeton en ruso y español","meta-desc":"Nevara (Nevara Music): Latin Pop y Reggaeton en ruso y español. Nuevas canciones, videoclips y la lista completa de temas del canal oficial de YouTube @thisisnevara.","og-title":"Nevara — Latin Pop y Reggaeton en dos idiomas","og-desc":"Voces en ruso y español, ritmos latinos y música para subir el volumen.",catalog:"Todas las canciones","all-genres":"Todas",genre:"Género",popular:"Canciones populares","all-songs":"Todas las canciones en YouTube ↗",playlists:"Playlists ↗","h-about":"El proyecto","about-lead":"Dos idiomas, un ritmo. Nevara une letras en ruso con energía latina.","about-1":"Música para viajar, bailar y volver a sentir. Las canciones suenan en ruso y en español, juntos o por separado.","about-2":"Producción: Nevara Music.","lang-ru":"Ruso","subscribe-long":"Suscribirse al canal",prod:"producción Nevara Music"},
+  en:{tagline:"Two voices. One rhythm. Russian and Spanish, Latin energy and music to turn up loud.",listen:"Listen on YouTube",subscribe:"Subscribe","see-songs":"Explore songs ↓","h-songs":"Nevara songs","songs-lead":"Find your rhythm.","songs-intro":"Choose a song and listen on the official Nevara YouTube channel.",new:"NEW RELEASE",latest:"LATEST RELEASE","watch-new":"Watch on YouTube","listen-here":"Listen","player-loading":"Loading player…","player-fallback":"Watch on YouTube","to-top":"Back to top","open-song":"Open song\u00a0→","song-page":"Lyrics and story\u00a0→","doc-title":"Nevara — Latin Pop and Reggaeton in Russian and Spanish","meta-desc":"Nevara (Nevara Music) — Latin Pop and Reggaeton in Russian and Spanish. New songs, music videos and the full track list from the official YouTube channel @thisisnevara.","og-title":"Nevara — Latin Pop and Reggaeton in two languages","og-desc":"Russian and Spanish vocals, Latin rhythms and music to turn up loud.",catalog:"All Nevara songs","all-genres":"All",genre:"Genre",popular:"Popular tracks","all-songs":"All songs on YouTube ↗",playlists:"Playlists ↗","h-about":"About","about-lead":"Two languages, one rhythm. Nevara brings Russian lyrics and Latin energy together.","about-1":"Music for the road, the dance floor and moments worth repeating. Songs in Russian and Spanish, together or apart.","about-2":"Production: Nevara Music.","lang-ru":"Russian","subscribe-long":"Subscribe to the channel",prod:"production by Nevara Music"}
 };
 const LOCALE={ru:"ru-RU",es:"es-ES",en:"en-GB"};
 function formatDates(l){
@@ -451,16 +454,11 @@ function formatDates(l){
     const d=new Date(el.getAttribute("datetime")+"T00:00:00Z");if(!isNaN(d))el.textContent=f.format(d).replace(" г.","");
   });
 }
-function setLang(l){
-  document.documentElement.lang=l;
-  document.querySelectorAll("[data-i18n]").forEach(el=>{const v=T[l][el.dataset.i18n];if(v)el.textContent=v;});
-  formatDates(l);
-  if(T[l]["doc-title"])document.title=T[l]["doc-title"];
-  document.querySelectorAll("[data-i18n-label]").forEach(el=>{const v=T[l][el.dataset.i18nLabel];if(v)el.setAttribute("aria-label",v);});
-  document.querySelectorAll(".langs button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.lang===l));
-  try{localStorage.setItem("nevara-lang",l)}catch(e){}
-}
-document.querySelectorAll(".langs button").forEach(b=>b.addEventListener("click",()=>setLang(b.dataset.lang)));
+/* У каждого языка своя главная (/, /es/, /en/) — текст переведён уже при сборке.
+   Выбор языка запоминаем: страницы песен и «Все песни» откроются на нём же. */
+document.querySelectorAll(".langs a[data-lang]").forEach(a=>a.addEventListener("click",()=>{
+  try{localStorage.setItem("nevara-lang",a.dataset.lang)}catch(e){}
+}));
 /* Фильтр списка по жанру */
 document.addEventListener("click",e=>{
   const b=e.target.closest(".c-filter button");if(!b)return;
@@ -478,7 +476,6 @@ function openCatalog(){
   try{history.replaceState(null,"",location.pathname+location.search)}catch(e){}
 }
 openCatalog();window.addEventListener("hashchange",openCatalog);
-try{const s=localStorage.getItem("nevara-lang");if(s&&T[s])setLang(s)}catch(e){}
 formatDates(document.documentElement.lang||"ru");
 
 // Back-to-top button and in-page links: smooth scroll without adding #… to the address
