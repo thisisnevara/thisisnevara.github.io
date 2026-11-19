@@ -337,7 +337,7 @@ class SpanishPageTests(unittest.TestCase):
     def test_spanish_page_is_spanish(self):
         bs.build(self.root, self.out)
         p = self.page("bamboleo-espanol")
-        self.assertNotIn("{{", p)
+        self.assertNotRegex(p, r"\{\{[A-Z_0-9]+\}\}")       # метки заполнены (в комментарии шаблона «{{…}}» — не метка)
         self.assertIn('<html lang="es">', p)
         self.assertIn("<title>BAMBOLEO (Español) — Nevara · letra de la canción</title>", p)
         self.assertIn('og:locale" content="es_ES"', p)
