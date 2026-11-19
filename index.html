@@ -541,15 +541,6 @@ formatDates(document.documentElement.lang||"ru");
   });
 })();
 
-// Background photo: no "save image" menu on right-click / long-press.
-// Text, links, buttons and any selected text keep the normal menu, so text can always be copied.
-document.querySelector('.hero').addEventListener('contextmenu',e=>{
-  const sel=window.getSelection&&String(window.getSelection());
-  if(sel)return;
-  if(e.target.closest('h1,p,a,button,.langs,.logo'))return;
-  e.preventDefault();
-});
-
 // Встроенный плеер YouTube: появляется на месте обложки без автозапуска — песню запускают
 // красной кнопкой самого YouTube, и такое прослушивание засчитывается просмотром на канале.
 // Пока плеер грузится, видна наша обложка; на главной плеер грузится, когда блок близко к экрану.
