@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="{{LANG}}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,7 +8,9 @@
 <meta name="description" content="{{META_DESC}}">
 <meta name="theme-color" content="#07070f">
 <link rel="canonical" href="{{CANONICAL}}">
+{{ALTERNATES}}
 <meta property="og:type" content="music.song">
+<meta property="og:locale" content="{{OG_LOCALE}}">
 <meta property="og:site_name" content="Nevara">
 <meta property="og:title" content="{{PAGE_TITLE}}">
 <meta property="og:description" content="{{META_DESC}}">
@@ -161,7 +163,7 @@ footer{max-width:1068px;margin:0 auto;padding:28px 0 44px;display:flex;flex-wrap
     </div>
     <div class="info">
       <p class="kicker">Nevara</p>
-      <h1 style="--w:{{NAME_W}}">{{NAME}}</h1>
+      <h1 lang="{{NAME_LANG}}" style="--w:{{NAME_W}}">{{NAME}}</h1>
       {{LINE}}
       <p class="tags">{{TAGS}}<time datetime="{{DATE}}">{{DATE_SHOWN}}</time></p>
       {{VERSIONS}}
@@ -228,7 +230,9 @@ function setLang(l){
   try{localStorage.setItem("nevara-lang",l)}catch(e){}
 }
 document.querySelectorAll(".langs button").forEach(b=>b.addEventListener("click",()=>setLang(b.dataset.lang)));
-let saved="ru";try{const s=localStorage.getItem("nevara-lang");if(s&&T[s])saved=s}catch(e){}
+// по умолчанию — язык самой страницы (испанская песня открывается по-испански); выбор посетителя важнее
+const pageLang=document.documentElement.lang;
+let saved=T[pageLang]?pageLang:"ru";try{const s=localStorage.getItem("nevara-lang");if(s&&T[s])saved=s}catch(e){}
 setLang(saved);
 
 // «Поделиться»: на телефоне — системное меню (Telegram, WhatsApp…), иначе ссылка копируется

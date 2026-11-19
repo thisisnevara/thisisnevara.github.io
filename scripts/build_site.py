@@ -248,6 +248,63 @@ def build(root, out):
 YEAR_TAIL = re.compile(r"\s+(?:19|20)\d{2}$")
 VERSION_LABEL = {"ru": "Русская версия", "es": "Испанская версия"}
 
+# Язык страницы песни. По умолчанию русский; песни из data/languages.json получают страницу
+# целиком на этом языке: подписи, заголовок, описание для поиска, <html lang>.
+LANGS_FILE = os.path.join("data", "languages.json")
+OG_LOCALE = {"ru": "ru_RU", "es": "es_ES"}
+HERO_ALT = {"ru": "Nevara — дуэт на вечерней террасе с видом на ночной город",
+            "es": "Nevara — dúo en una terraza al anochecer con vistas a la ciudad"}
+
+
+def load_page_langs(root, slugs):
+    """{адрес песни: язык} из data/languages.json. Опечатка в адресе — предупреждение, а не ошибка:
+    из-за неё не стоит оставлять сайт без обновления."""
+    path = os.path.join(root, LANGS_FILE)
+    if not os.path.exists(path):
+        return {}
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+    except ValueError as e:
+        raise BuildError(f"ошибка в {LANGS_FILE}: {e}")
+    langs = {}
+    for lang, items in data.items():
+        if lang.startswith("_"):                  # «_» — комментарий для людей
+            continue
+        if lang not in OG_LOCALE or lang == "ru" or not isinstance(items, list):
+            raise BuildError(f"{LANGS_FILE}: неизвестный язык {lang!r} (можно: es)")
+        for slug in items:
+            if slug in slugs:
+                langs[slug] = lang
+            else:
+                print(f"ВНИМАНИЕ: {LANGS_FILE}: песни с адресом {slug!r} нет — пропускаю")
+    return langs
+
+
+def ui_strings(template, lang):
+    """Подписи интерфейса на нужном языке — из словаря T в самом шаблоне song.html,
+    чтобы переводы хранились в одном месте и на странице, и при сборке."""
+    m = re.search(r"^\s*" + re.escape(lang) + r":\{(.*)\}\s*,?\s*$", template, re.M)
+    if not m:
+        raise BuildError(f"в song.html нет переводов для языка {lang!r}")
+    pairs = re.findall(r'(?:"([\w-]+)"|(\w+)):"((?:[^"\\]|\\.)*)"', m.group(1))
+    return {a or b: json.loads(f'"{v}"') for a, b, v in pairs}
+
+
+I18N_TEXT = re.compile(r'(data-i18n="([\w-]+)"[^>]*>)([^<]*)(?=<)')
+
+
+def translate_ui(page, strings):
+    """Подставляет переводы в элементы с data-i18n прямо в HTML: поисковик и посетитель
+    без JavaScript сразу видят страницу на её языке."""
+    def sub(m):
+        v = strings.get(m.group(2))
+        return m.group(1) + (esc(v) if v is not None else m.group(3))
+    page = I18N_TEXT.sub(sub, page)
+    if "share" in strings:
+        page = page.replace('aria-label="Поделиться"', f'aria-label="{esc(strings["share"])}"')
+    return page
+
 
 def version_key(slug):
     """Общий ключ для языковых версий: bam-boleo и bamboleo-espanol -> bamboleo."""
@@ -328,12 +385,16 @@ def build_songs(root, tmp, og_fallback=SITE_URL + "nevara-og.jpg", analytics="")
     groups = {}
     for s in songs:
         groups.setdefault(version_key(s["slug"]), []).append(s)
+    page_langs = load_page_langs(root, {s["slug"] for s in songs})
+    ui = {lang: ui_strings(template, lang) for lang in set(page_langs.values())}
 
     pages = []
     for s in songs:
         slug, name, vid = s["slug"], s["name"], s["id"]
         if not re.fullmatch(r"[a-z0-9-]+", slug) or not re.fullmatch(r"[A-Za-z0-9_-]{11}", vid):
             raise BuildError(f"неожиданные данные песни: {slug!r} / {vid!r}")
+        lang = page_langs.get(slug, "ru")
+        es = lang == "es"
         sub = s.get("sub", [])
         line = sub[0] if sub else ""
         genres = [YEAR_TAIL.sub("", g) or g for g in sub[1:]]    # «Latin Pop 2026» -> «Latin Pop», год есть в дате
@@ -373,7 +434,9 @@ def build_songs(root, tmp, og_fallback=SITE_URL + "nevara-og.jpg", analytics="")
         about = ""
         if s.get("description"):
             paras = "".join(f"<p>{esc(p)}</p>" for p in s["description"])
-            about = f'<section><h2 data-i18n="about">О песне</h2><div class="about">{paras}</div></section>'
+            # lang у содержимого: если посетитель переключит подписи на другой язык, текст песни
+            # и описание всё равно читаются экранным диктором на своём языке
+            about = f'<section><h2 data-i18n="about">О песне</h2><div class="about" lang="{lang}">{paras}</div></section>'
         lyrics_html, has_lyrics = "", False
         lpath = os.path.join(root, "lyrics", f"{slug}.txt")
         if os.path.exists(lpath):
@@ -383,7 +446,7 @@ def build_songs(root, tmp, og_fallback=SITE_URL + "nevara-og.jpg", analytics="")
                 has_lyrics = True
                 body = "".join(render_stanza(st) for st in stanzas)
                 lyrics_html = (f'<section id="lyrics"><h2 data-i18n="lyrics">Текст песни</h2>'
-                               f'<div class="lyrics">{body}</div></section>')
+                               f'<div class="lyrics" lang="{lang}">{body}</div></section>')
 
         my_lang = song_lang(name)
         versions = "".join(
@@ -400,10 +463,25 @@ def build_songs(root, tmp, og_fallback=SITE_URL + "nevara-og.jpg", analytics="")
             f'<span>{esc(o["sub"][0]) if o.get("sub") else ""}</span></a></li>' for o in others)
 
         nice = nice_name(name)
-        page_title = f"{nice} — Nevara · текст песни" if has_lyrics else f"{nice} — Nevara · слушать песню"
-        meta = (s["description"][0] if s.get("description") else
-                f"«{nice}» — песня Nevara{(' (' + ', '.join(genres) + ')') if genres else ''}. "
-                + ("Слушайте песню и читайте текст." if has_lyrics else "Слушайте песню на YouTube."))
+        in_genres = f" ({', '.join(genres)})" if genres else ""
+        if es:
+            page_title = f"{nice} — Nevara · letra de la canción" if has_lyrics else f"{nice} — Nevara · escuchar la canción"
+            meta = (s["description"][0] if s.get("description") else
+                    f"«{nice}» — canción de Nevara{in_genres}. "
+                    + ("Escucha la canción y lee la letra." if has_lyrics else "Escucha la canción en YouTube."))
+        else:
+            page_title = f"{nice} — Nevara · текст песни" if has_lyrics else f"{nice} — Nevara · слушать песню"
+            meta = (s["description"][0] if s.get("description") else
+                    f"«{nice}» — песня Nevara{in_genres}. "
+                    + ("Слушайте песню и читайте текст." if has_lyrics else "Слушайте песню на YouTube."))
+        # Языковые версии одной песни ссылаются друг на друга (hreflang), если их страницы на разных языках
+        alts = {}
+        for o in groups[version_key(slug)]:
+            alts.setdefault(page_langs.get(o["slug"], "ru"), []).append(o["slug"])
+        alternates = ""
+        if len(alts) > 1 and all(len(v) == 1 for v in alts.values()):
+            alternates = "\n".join(f'<link rel="alternate" hreflang="{l}" href="{SITE_URL}{v[0]}/">'
+                                   for l, v in sorted(alts.items()))
         if len(meta) > 160:
             meta = meta[:157].rsplit(" ", 1)[0] + "…"
         url = f"{SITE_URL}{slug}/"
@@ -411,7 +489,7 @@ def build_songs(root, tmp, og_fallback=SITE_URL + "nevara-og.jpg", analytics="")
         cover_url = SITE_URL + cover if has_cover else og_fallback
         date = s.get("published", "")
         ld = {
-            "@context": "https://schema.org", "@type": "MusicRecording", "name": nice, "url": url,
+            "@context": "https://schema.org", "@type": "MusicRecording", "name": nice, "url": url, "inLanguage": lang,
             "image": cover_url, "datePublished": date, "genre": genres,
             "byArtist": {"@type": "MusicGroup", "name": "Nevara", "@id": f"{SITE_URL}#artist", "url": SITE_URL},
             "sameAs": [f"https://www.youtube.com/watch?v={vid}"],
@@ -436,13 +514,16 @@ def build_songs(root, tmp, og_fallback=SITE_URL + "nevara-og.jpg", analytics="")
             "{{PAGE_TITLE}}": esc(page_title), "{{META_DESC}}": esc(meta), "{{CANONICAL}}": url,
             "{{OG_IMAGE}}": SITE_URL + og_name if og_name else og_fallback,
             # подпись к картинке превью (для незрячих и когда картинка не загрузилась)
-            "{{OG_ALT}}": esc(f"Обложка песни «{nice}» — Nevara" if og_name else "Nevara — дуэт на вечерней террасе с видом на ночной город"),
+            "{{OG_ALT}}": esc(HERO_ALT[lang] if not og_name else
+                              f"Portada de la canción «{nice}» — Nevara" if es else f"Обложка песни «{nice}» — Nevara"),
+            "{{LANG}}": lang, "{{OG_LOCALE}}": OG_LOCALE[lang], "{{ALTERNATES}}": alternates,
+            "{{NAME_LANG}}": "es" if is_spanish(name) else "ru",
             "{{BACKDROP}}": f'<img src="{bg}" alt="" draggable="false">' if bg else "", "{{VIDEO_ID}}": vid, "{{COVER_IMG}}": (f'<img src="../{esc(cover)}" alt="Nevara — {esc(name)}" width="800" height="450" '
                               f'fetchpriority="high">' if has_cover else ""),
             "{{NAME}}": esc(name),
             # длина самого длинного слова (дефис — место переноса): по ней страница подбирает размер названия
             "{{NAME_W}}": str(max(4, max((len(w) for w in re.split(r"\s+|(?<=-)", name) if w), default=4))),
-            "{{LINE}}": f'<p class="line">{esc(line)}</p>' if line else "",
+            "{{LINE}}": f'<p class="line" lang="{"es" if is_spanish(line) else "ru"}">{esc(line)}</p>' if line else "",
             "{{TAGS}}": "".join(f'<span class="tag">{esc(g)}</span>' for g in genres),
             "{{DATE}}": esc(date),
             "{{DATE_SHOWN}}": f"{date[8:10]}.{date[5:7]}.{date[:4]}" if len(date) == 10 else "",
@@ -458,6 +539,8 @@ def build_songs(root, tmp, og_fallback=SITE_URL + "nevara-og.jpg", analytics="")
         left_over = sorted(set(PLACEHOLDER.findall(page)))
         if left_over:
             raise BuildError(f"в song.html остались незаполненные метки: {', '.join(left_over)}")
+        if lang in ui:
+            page = translate_ui(page, ui[lang])
         os.makedirs(os.path.join(tmp, slug))
         with open(os.path.join(tmp, slug, "index.html"), "w", encoding="utf-8") as f:
             f.write(page)

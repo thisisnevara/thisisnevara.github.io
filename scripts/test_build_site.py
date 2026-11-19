@@ -293,6 +293,93 @@ class SongPageTests(unittest.TestCase):
 
 
 
+REAL_TEMPLATE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "song.html")
+
+
+class SpanishPageTests(unittest.TestCase):
+    """Страница испанской песни целиком на испанском — по data/languages.json и настоящему шаблону song.html
+    (так проверяется и то, что переводы из шаблона читаются при сборке)."""
+
+    def setUp(self):
+        from PIL import Image
+        self.root = tempfile.mkdtemp()
+        self.out = os.path.join(self.root, "_site")
+        for d in ("images", "covers", "data", "lyrics"):
+            os.makedirs(os.path.join(self.root, d))
+        Image.new("RGB", (1600, 900), "#802040").save(os.path.join(self.root, "images", "hero.jpg"))
+        Image.new("RGB", (800, 450), "#a03060").save(os.path.join(self.root, "covers", "qUbkpldW_Z0-800-aaaaaa.webp"))
+        self.write("images/hero.json", json.dumps({"couple_left": 570, "couple_right": 1550}))
+        self.write("index.html", INDEX)
+        shutil.copy(REAL_TEMPLATE, os.path.join(self.root, "song.html"))
+        songs = [
+            {"id": "qUbkpldW_Z0", "slug": "bamboleo-espanol", "title": "Nevara — BAMBOLEO (Español) | Tú me llenas de energía | Latin Pop 2026",
+             "name": "BAMBOLEO (Español)", "sub": ["Tú me llenas de energía", "Latin Pop 2026"], "published": "2026-10-20",
+             "views": 20, "description": ["La versión en español de «БАМ-БОЛЕО»."], "cover": "covers/qUbkpldW_Z0-800-aaaaaa.webp"},
+            {"id": "hVZ7I8PLAbE", "slug": "bam-boleo", "title": "Nevara — БАМ-БОЛЕО | Закрути меня смелее | Reggaeton 2026",
+             "name": "БАМ-БОЛЕО", "sub": ["Закрути меня смелее", "Reggaeton 2026"], "published": "2026-05-05",
+             "views": 10, "description": [], "cover": None},
+        ]
+        self.write("data/songs.json", json.dumps({"songs": songs}, ensure_ascii=False))
+        self.write("data/languages.json", json.dumps({"_": "комментарий", "es": ["bamboleo-espanol", "no-such-song"]}))
+        self.write("lyrics/bamboleo-espanol.txt", "Bamboleo, bamboleo\nMe llenas de energía\n")
+
+    def tearDown(self):
+        shutil.rmtree(self.root)
+
+    def write(self, name, text):
+        with open(os.path.join(self.root, name), "w", encoding="utf-8") as f:
+            f.write(text)
+
+    def page(self, slug):
+        with open(os.path.join(self.out, slug, "index.html"), encoding="utf-8") as f:
+            return f.read()
+
+    def test_spanish_page_is_spanish(self):
+        bs.build(self.root, self.out)
+        p = self.page("bamboleo-espanol")
+        self.assertNotIn("{{", p)
+        self.assertIn('<html lang="es">', p)
+        self.assertIn("<title>BAMBOLEO (Español) — Nevara · letra de la canción</title>", p)
+        self.assertIn('og:locale" content="es_ES"', p)
+        self.assertIn('og:image:alt" content="Portada de la canción «BAMBOLEO (Español)» — Nevara"', p)
+        self.assertIn('"inLanguage": "es"', p)
+        self.assertIn('data-i18n="back">← Todas las canciones<', p)
+        self.assertIn('data-i18n="lyrics">Letra<', p)
+        self.assertIn('data-i18n="ver-ru">Versión en ruso<', p)
+        self.assertIn('aria-label="Compartir"', p)
+        self.assertIn('<div class="lyrics" lang="es">', p)
+        visible = p.split("<body", 1)[1].split("<script>", 1)[0]      # видимая часть, без словаря переводов в скрипте
+        for ru in ("Все песни", "Текст песни", "Подписаться", "Ещё песни", "продакшн", "Слушать", "О песне"):
+            self.assertNotIn(ru, visible)
+
+    def test_russian_page_stays_russian(self):
+        bs.build(self.root, self.out)
+        p = self.page("bam-boleo")
+        self.assertIn('<html lang="ru">', p)
+        self.assertIn('og:locale" content="ru_RU"', p)
+        self.assertIn('data-i18n="back">← Все песни<', p)
+        self.assertIn('data-i18n="ver-es">Испанская версия<', p)
+        self.assertIn('<h1 lang="ru"', p)
+
+    def test_language_versions_linked_with_hreflang(self):
+        bs.build(self.root, self.out)
+        for slug in ("bamboleo-espanol", "bam-boleo"):
+            p = self.page(slug)
+            self.assertIn('<link rel="alternate" hreflang="es" href="https://thisisnevara.com/bamboleo-espanol/">', p)
+            self.assertIn('<link rel="alternate" hreflang="ru" href="https://thisisnevara.com/bam-boleo/">', p)
+
+    def test_without_languages_file_all_russian(self):
+        os.remove(os.path.join(self.root, "data", "languages.json"))
+        bs.build(self.root, self.out)
+        self.assertIn('<html lang="ru">', self.page("bamboleo-espanol"))
+        self.assertNotIn('hreflang', self.page("bam-boleo"))
+
+    def test_broken_languages_file_stops_build(self):
+        self.write("data/languages.json", "{oops")
+        with self.assertRaises(bs.BuildError):
+            bs.build(self.root, self.out)
+
+
 class VersionTests(unittest.TestCase):
     def test_version_key_pairs_languages(self):
         import build_site as b
