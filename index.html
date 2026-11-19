@@ -142,6 +142,9 @@ p{max-width:62ch;margin:0 0 14px;color:var(--muted)}
 .play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;border:0;padding:0;background:linear-gradient(0deg,rgba(7,7,15,.45),rgba(7,7,15,.05) 60%);cursor:pointer;color:#fff;font:inherit}
 .play span.pill{display:inline-flex;align-items:center;gap:10px;font:700 16px/1 var(--body);padding:14px 22px 14px 16px;border-radius:999px;background:var(--neon-btn);box-shadow:0 0 30px rgba(255,46,136,.6);transition:transform .2s}
 .play svg{width:22px;height:22px;flex:none}
+.play{text-decoration:none}
+.play[aria-busy="true"]{cursor:progress}
+.play[aria-busy="true"] .pill{opacity:.85}
 .play:focus-visible span.pill{outline:2px solid var(--sodium);outline-offset:3px}
 @media (hover:hover){.play:hover span.pill{transform:scale(1.05)}}
 .cover iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block;background:#000}
@@ -437,9 +440,9 @@ html{scroll-behavior:smooth}
   go();addEventListener("load",()=>{go();requestAnimationFrame(go)});
 }catch(e){}})();
 const T={
-  ru:{tagline:"Два голоса. Один ритм. Русский и испанский, латинская энергия и музыка, которую хочется включить громче.",listen:"Слушать на YouTube",subscribe:"Подписаться","see-songs":"Смотреть песни ↓","h-songs":"Песни Nevara","songs-lead":"Найди свой ритм.","songs-intro":"Выбирай песню и слушай на официальном YouTube-канале Nevara.",new:"НОВЫЙ РЕЛИЗ",latest:"ПОСЛЕДНИЙ РЕЛИЗ","watch-new":"Смотреть на YouTube","listen-here":"Слушать","to-top":"Наверх","open-song":"Открыть песню\u00a0→","song-page":"Текст и описание\u00a0→","doc-title":"Nevara — Latin Pop и Reggaeton на русском и испанском языках",catalog:"Все песни Nevara","all-genres":"Все",genre:"Жанр",popular:"Популярные треки","all-songs":"Все песни на YouTube ↗",playlists:"Плейлисты ↗","h-about":"О проекте","about-lead":"Два языка, один ритм. Nevara соединяет русскую лирику с латинской энергией.","about-1":"Музыка для дороги, танцев и моментов, которые хочется повторить. В песнях звучат русский и испанский — иногда вместе, иногда по отдельности.","about-2":"Продакшн: Nevara Music.","lang-ru":"Русский","subscribe-long":"Подписаться на канал",prod:"продакшн Nevara Music"},
-  es:{tagline:"Dos voces, un ritmo. Ruso y español, energía latina y música para subir el volumen.",listen:"Escuchar en YouTube",subscribe:"Suscribirse","see-songs":"Ver canciones ↓","h-songs":"Canciones de Nevara","songs-lead":"Encuentra tu ritmo.","songs-intro":"Elige una canción y escúchala en el canal oficial de Nevara en YouTube.",new:"NUEVO LANZAMIENTO",latest:"ÚLTIMO LANZAMIENTO","watch-new":"Ver en YouTube","listen-here":"Escuchar","to-top":"Arriba","open-song":"Abrir canción\u00a0→","song-page":"Letra y descripción\u00a0→","doc-title":"Nevara — Latin Pop y Reggaeton en ruso y español",catalog:"Todas las canciones","all-genres":"Todas",genre:"Género",popular:"Canciones populares","all-songs":"Todas las canciones en YouTube ↗",playlists:"Playlists ↗","h-about":"El proyecto","about-lead":"Dos idiomas, un ritmo. Nevara une letras en ruso con energía latina.","about-1":"Música para viajar, bailar y volver a sentir. Las canciones suenan en ruso y en español, juntos o por separado.","about-2":"Producción: Nevara Music.","lang-ru":"Ruso","subscribe-long":"Suscribirse al canal",prod:"producción Nevara Music"},
-  en:{tagline:"Two voices. One rhythm. Russian and Spanish, Latin energy and music to turn up loud.",listen:"Listen on YouTube",subscribe:"Subscribe","see-songs":"Explore songs ↓","h-songs":"Nevara songs","songs-lead":"Find your rhythm.","songs-intro":"Choose a song and listen on the official Nevara YouTube channel.",new:"NEW RELEASE",latest:"LATEST RELEASE","watch-new":"Watch on YouTube","listen-here":"Listen","to-top":"Back to top","open-song":"Open song\u00a0→","song-page":"Lyrics and story\u00a0→","doc-title":"Nevara — Latin Pop and Reggaeton in Russian and Spanish",catalog:"All Nevara songs","all-genres":"All",genre:"Genre",popular:"Popular tracks","all-songs":"All songs on YouTube ↗",playlists:"Playlists ↗","h-about":"About","about-lead":"Two languages, one rhythm. Nevara brings Russian lyrics and Latin energy together.","about-1":"Music for the road, the dance floor and moments worth repeating. Songs in Russian and Spanish, together or apart.","about-2":"Production: Nevara Music.","lang-ru":"Russian","subscribe-long":"Subscribe to the channel",prod:"production by Nevara Music"}
+  ru:{tagline:"Два голоса. Один ритм. Русский и испанский, латинская энергия и музыка, которую хочется включить громче.",listen:"Слушать на YouTube",subscribe:"Подписаться","see-songs":"Смотреть песни ↓","h-songs":"Песни Nevara","songs-lead":"Найди свой ритм.","songs-intro":"Выбирай песню и слушай на официальном YouTube-канале Nevara.",new:"НОВЫЙ РЕЛИЗ",latest:"ПОСЛЕДНИЙ РЕЛИЗ","watch-new":"Смотреть на YouTube","listen-here":"Слушать","player-loading":"Загружаем плеер…","player-fallback":"Смотреть на YouTube","to-top":"Наверх","open-song":"Открыть песню\u00a0→","song-page":"Текст и описание\u00a0→","doc-title":"Nevara — Latin Pop и Reggaeton на русском и испанском языках",catalog:"Все песни Nevara","all-genres":"Все",genre:"Жанр",popular:"Популярные треки","all-songs":"Все песни на YouTube ↗",playlists:"Плейлисты ↗","h-about":"О проекте","about-lead":"Два языка, один ритм. Nevara соединяет русскую лирику с латинской энергией.","about-1":"Музыка для дороги, танцев и моментов, которые хочется повторить. В песнях звучат русский и испанский — иногда вместе, иногда по отдельности.","about-2":"Продакшн: Nevara Music.","lang-ru":"Русский","subscribe-long":"Подписаться на канал",prod:"продакшн Nevara Music"},
+  es:{tagline:"Dos voces, un ritmo. Ruso y español, energía latina y música para subir el volumen.",listen:"Escuchar en YouTube",subscribe:"Suscribirse","see-songs":"Ver canciones ↓","h-songs":"Canciones de Nevara","songs-lead":"Encuentra tu ritmo.","songs-intro":"Elige una canción y escúchala en el canal oficial de Nevara en YouTube.",new:"NUEVO LANZAMIENTO",latest:"ÚLTIMO LANZAMIENTO","watch-new":"Ver en YouTube","listen-here":"Escuchar","player-loading":"Cargando el reproductor…","player-fallback":"Ver en YouTube","to-top":"Arriba","open-song":"Abrir canción\u00a0→","song-page":"Letra y descripción\u00a0→","doc-title":"Nevara — Latin Pop y Reggaeton en ruso y español",catalog:"Todas las canciones","all-genres":"Todas",genre:"Género",popular:"Canciones populares","all-songs":"Todas las canciones en YouTube ↗",playlists:"Playlists ↗","h-about":"El proyecto","about-lead":"Dos idiomas, un ritmo. Nevara une letras en ruso con energía latina.","about-1":"Música para viajar, bailar y volver a sentir. Las canciones suenan en ruso y en español, juntos o por separado.","about-2":"Producción: Nevara Music.","lang-ru":"Ruso","subscribe-long":"Suscribirse al canal",prod:"producción Nevara Music"},
+  en:{tagline:"Two voices. One rhythm. Russian and Spanish, Latin energy and music to turn up loud.",listen:"Listen on YouTube",subscribe:"Subscribe","see-songs":"Explore songs ↓","h-songs":"Nevara songs","songs-lead":"Find your rhythm.","songs-intro":"Choose a song and listen on the official Nevara YouTube channel.",new:"NEW RELEASE",latest:"LATEST RELEASE","watch-new":"Watch on YouTube","listen-here":"Listen","player-loading":"Loading player…","player-fallback":"Watch on YouTube","to-top":"Back to top","open-song":"Open song\u00a0→","song-page":"Lyrics and story\u00a0→","doc-title":"Nevara — Latin Pop and Reggaeton in Russian and Spanish",catalog:"All Nevara songs","all-genres":"All",genre:"Genre",popular:"Popular tracks","all-songs":"All songs on YouTube ↗",playlists:"Playlists ↗","h-about":"About","about-lead":"Two languages, one rhythm. Nevara brings Russian lyrics and Latin energy together.","about-1":"Music for the road, the dance floor and moments worth repeating. Songs in Russian and Spanish, together or apart.","about-2":"Production: Nevara Music.","lang-ru":"Russian","subscribe-long":"Subscribe to the channel",prod:"production by Nevara Music"}
 };
 const LOCALE={ru:"ru-RU",es:"es-ES",en:"en-GB"};
 function formatDates(l){
@@ -511,8 +514,15 @@ document.querySelector('.hero').addEventListener('contextmenu',e=>{
 // Встроенный плеер YouTube: появляется на месте обложки без автозапуска — песню запускают
 // красной кнопкой самого YouTube, и такое прослушивание засчитывается просмотром на канале.
 // Пока плеер грузится, видна наша обложка; на главной плеер грузится, когда блок близко к экрану.
+// Если YouTube не отвечает (например, заблокирован), обложка остаётся, а кнопка ведёт на YouTube.
 (function(){
   const YT=/^https:\/\/www\.youtube(-nocookie)?\.com$/;
+  const WAIT=10000;   // столько ждём ответа плеера; потом кнопка ведёт на YouTube
+  const text=k=>(T[document.documentElement.lang]||T.ru)[k]||"";
+  // подпись на нашей кнопке; меняем и ключ перевода, чтобы переключение языка её не сбросило
+  function label(cover,key){const s=cover.querySelector(".play .pill [data-i18n]");if(s){s.dataset.i18n=key;s.textContent=text(key)}}
+  const songOf=cover=>(cover.dataset.title||"").replace(/^Nevara — /,"");
+  function track(name,cover){if(window.umami)try{umami.track(name,{song:songOf(cover)})}catch(err){}}
   function mount(cover){
     if(cover.dataset.mounted)return;
     const id=cover.dataset.video;if(!id||!/^[A-Za-z0-9_-]{11}$/.test(id))return;
@@ -525,25 +535,51 @@ document.querySelector('.hero').addEventListener('contextmenu',e=>{
     f.allow="encrypted-media; picture-in-picture; fullscreen";
     f.allowFullscreen=true;f.referrerPolicy="strict-origin-when-cross-origin";
     f.className="yt";
+    // Просим плеер присылать сообщения и повторяем, пока не ответит (как официальная библиотека YouTube).
+    // Плеер готов, когда пришло первое сообщение. Событие load у iframe этого не доказывает:
+    // оно срабатывает и на странице ошибки, если YouTube заблокирован.
+    const hello=()=>{try{f.contentWindow.postMessage(JSON.stringify({event:"listening",id:1,channel:"widget"}),"*")}catch(e){}};
     f.addEventListener("load",()=>{
-      f.classList.add("ready");
-      setTimeout(()=>cover.querySelectorAll("img,.play").forEach(n=>n.remove()),400);
-      // просим плеер сообщать о запуске — для статистики «Слушать»
-      try{f.contentWindow.postMessage(JSON.stringify({event:"listening",id:1,channel:"widget"}),"*")}catch(e){}
+      hello();
+      if(!cover.dataset.ready&&!cover._ping){cover._ping=setInterval(hello,250);setTimeout(()=>clearInterval(cover._ping),60000)}
     });
+    cover._wait=setTimeout(()=>fail(cover),WAIT);
     cover.appendChild(f);
+  }
+  // Плеер ответил: показываем его, обложку и нашу кнопку убираем
+  function ready(cover){
+    if(cover.dataset.ready)return;
+    cover.dataset.ready="1";clearInterval(cover._ping);clearTimeout(cover._wait);
+    const f=cover.querySelector("iframe.yt");if(f)f.classList.add("ready");
+    setTimeout(()=>cover.querySelectorAll("img,.play").forEach(n=>n.remove()),400);
+  }
+  // Плеер не ответил (YouTube заблокирован или очень медленный): обложка остаётся,
+  // кнопка становится ссылкой на видео. Если плеер всё же догрузится позже, он займёт своё место.
+  function fail(cover){
+    if(cover.dataset.ready||cover.dataset.failed)return;
+    cover.dataset.failed="1";
+    const b=cover.querySelector("button.play");
+    if(b){
+      const a=document.createElement("a"),focused=document.activeElement===b;
+      a.className="play";a.href="https://www.youtube.com/watch?v="+cover.dataset.video;
+      a.setAttribute("data-umami-event","YouTube: песня");a.setAttribute("data-umami-event-song",songOf(cover));
+      a.innerHTML=b.innerHTML;b.replaceWith(a);
+      label(cover,"player-fallback");
+      if(focused)a.focus();
+    }
+    track("Плеер не загрузился",cover);
   }
   addEventListener("message",e=>{
     if(!YT.test(e.origin)||typeof e.data!=="string")return;
     let d;try{d=JSON.parse(e.data)}catch(err){return}
-    const playing=(d.event==="onStateChange"&&d.info===1)||(d.event==="infoDelivery"&&d.info&&d.info.playerState===1);
-    if(!playing)return;
+    if(!d||typeof d!=="object")return;
     document.querySelectorAll(".cover[data-mounted]").forEach(c=>{
       const f=c.querySelector("iframe");
-      if(f&&f.contentWindow===e.source&&!c.dataset.played){
-        c.dataset.played="1";
-        if(window.umami)try{umami.track("Слушать",{song:c.dataset.title.replace(/^Nevara — /,"")})}catch(err){}
-      }
+      if(!f||f.contentWindow!==e.source)return;
+      ready(c);
+      // для статистики «Слушать»: плеер сообщил, что песня запущена
+      const playing=(d.event==="onStateChange"&&d.info===1)||(d.event==="infoDelivery"&&d.info&&d.info.playerState===1);
+      if(playing&&!c.dataset.played){c.dataset.played="1";track("Слушать",c)}
     });
   });
   // Плеер YouTube тяжёлый (~1 МБ), поэтому грузим его не сразу, а при первом действии посетителя:
@@ -562,8 +598,13 @@ document.querySelector('.hero').addEventListener('contextmenu',e=>{
   }
   const EV=["pointermove","pointerdown","touchstart","scroll","keydown","wheel"];
   EV.forEach(t=>addEventListener(t,start,{passive:true}));
-  // нажали нашу «Слушать» раньше, чем плеер загрузился, — ставим плеер сразу
-  document.addEventListener("click",e=>{const b=e.target.closest(".play");if(b){const c=b.closest(".cover");if(c){start();mount(c)}}});
+  // нажали нашу «Слушать» раньше, чем плеер загрузился, — ставим плеер сразу и показываем, что он грузится
+  document.addEventListener("click",e=>{
+    const b=e.target.closest("button.play");if(!b)return;
+    const c=b.closest(".cover");if(!c)return;
+    start();mount(c);
+    if(!c.dataset.ready&&!c.dataset.failed){b.setAttribute("aria-busy","true");label(c,"player-loading")}
+  });
 })();
 
 if ('IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: reduce)').matches){

@@ -65,6 +65,9 @@ main{max-width:1180px;margin:0 auto;padding:0 clamp(16px,5vw,56px) 40px;position
 .play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;border:0;padding:0;background:linear-gradient(0deg,rgba(7,7,15,.45),rgba(7,7,15,.05) 60%);cursor:pointer;color:#fff;font:inherit}
 .play .pill{display:inline-flex;align-items:center;gap:10px;font:700 16px/1 var(--body);padding:14px 22px 14px 16px;border-radius:999px;background:var(--neon-btn);box-shadow:0 0 30px rgba(255,46,136,.6);transition:transform .2s}
 .play svg{width:22px;height:22px}
+.play{text-decoration:none}
+.play[aria-busy="true"]{cursor:progress}
+.play[aria-busy="true"] .pill{opacity:.85}
 .play:focus-visible .pill{outline:2px solid var(--sodium);outline-offset:3px}
 @media (hover:hover){.play:hover .pill{transform:scale(1.05)}}
 
@@ -210,9 +213,9 @@ footer{max-width:1068px;margin:0 auto;padding:28px 0 44px;display:flex;flex-wrap
   go();addEventListener("load",()=>{go();requestAnimationFrame(go)});
 }catch(e){}})();
 const T={
-  ru:{back:"← Все песни",listen:"Слушать",youtube:"Смотреть на YouTube",subscribe:"Подписаться",about:"О песне",lyrics:"Текст песни",more:"Ещё песни",all:"Все песни Nevara",prod:"продакшн Nevara Music",jump:"Текст песни ↓",share:"Поделиться",copied:"Ссылка скопирована","ver-ru":"Русская версия","ver-es":"Испанская версия"},
-  es:{back:"← Todas las canciones",listen:"Escuchar",youtube:"Ver en YouTube",subscribe:"Suscribirse",about:"Sobre la canción",lyrics:"Letra",more:"Más canciones",all:"Todas las canciones",prod:"producción Nevara Music",jump:"Letra ↓",share:"Compartir",copied:"Enlace copiado","ver-ru":"Versión en ruso","ver-es":"Versión en español"},
-  en:{back:"← All songs",listen:"Listen",youtube:"Watch on YouTube",subscribe:"Subscribe",about:"About the song",lyrics:"Lyrics",more:"More songs",all:"All Nevara songs",prod:"production by Nevara Music",jump:"Lyrics ↓",share:"Share",copied:"Link copied","ver-ru":"Russian version","ver-es":"Spanish version"}
+  ru:{back:"← Все песни",listen:"Слушать","player-loading":"Загружаем плеер…","player-fallback":"Смотреть на YouTube",youtube:"Смотреть на YouTube",subscribe:"Подписаться",about:"О песне",lyrics:"Текст песни",more:"Ещё песни",all:"Все песни Nevara",prod:"продакшн Nevara Music",jump:"Текст песни ↓",share:"Поделиться",copied:"Ссылка скопирована","ver-ru":"Русская версия","ver-es":"Испанская версия"},
+  es:{back:"← Todas las canciones",listen:"Escuchar","player-loading":"Cargando el reproductor…","player-fallback":"Ver en YouTube",youtube:"Ver en YouTube",subscribe:"Suscribirse",about:"Sobre la canción",lyrics:"Letra",more:"Más canciones",all:"Todas las canciones",prod:"producción Nevara Music",jump:"Letra ↓",share:"Compartir",copied:"Enlace copiado","ver-ru":"Versión en ruso","ver-es":"Versión en español"},
+  en:{back:"← All songs",listen:"Listen","player-loading":"Loading player…","player-fallback":"Watch on YouTube",youtube:"Watch on YouTube",subscribe:"Subscribe",about:"About the song",lyrics:"Lyrics",more:"More songs",all:"All Nevara songs",prod:"production by Nevara Music",jump:"Lyrics ↓",share:"Share",copied:"Link copied","ver-ru":"Russian version","ver-es":"Spanish version"}
 };
 const LOCALE={ru:"ru-RU",es:"es-ES",en:"en-GB"};
 function setLang(l){
@@ -247,8 +250,15 @@ document.querySelectorAll(".share").forEach(b=>b.addEventListener("click",async(
 // Встроенный плеер YouTube: появляется на месте обложки без автозапуска — песню запускают
 // красной кнопкой самого YouTube, и такое прослушивание засчитывается просмотром на канале.
 // Пока плеер грузится, видна наша обложка; на главной плеер грузится, когда блок близко к экрану.
+// Если YouTube не отвечает (например, заблокирован), обложка остаётся, а кнопка ведёт на YouTube.
 (function(){
   const YT=/^https:\/\/www\.youtube(-nocookie)?\.com$/;
+  const WAIT=10000;   // столько ждём ответа плеера; потом кнопка ведёт на YouTube
+  const text=k=>(T[document.documentElement.lang]||T.ru)[k]||"";
+  // подпись на нашей кнопке; меняем и ключ перевода, чтобы переключение языка её не сбросило
+  function label(cover,key){const s=cover.querySelector(".play .pill [data-i18n]");if(s){s.dataset.i18n=key;s.textContent=text(key)}}
+  const songOf=cover=>(cover.dataset.title||"").replace(/^Nevara — /,"");
+  function track(name,cover){if(window.umami)try{umami.track(name,{song:songOf(cover)})}catch(err){}}
   function mount(cover){
     if(cover.dataset.mounted)return;
     const id=cover.dataset.video;if(!id||!/^[A-Za-z0-9_-]{11}$/.test(id))return;
@@ -261,25 +271,51 @@ document.querySelectorAll(".share").forEach(b=>b.addEventListener("click",async(
     f.allow="encrypted-media; picture-in-picture; fullscreen";
     f.allowFullscreen=true;f.referrerPolicy="strict-origin-when-cross-origin";
     f.className="yt";
+    // Просим плеер присылать сообщения и повторяем, пока не ответит (как официальная библиотека YouTube).
+    // Плеер готов, когда пришло первое сообщение. Событие load у iframe этого не доказывает:
+    // оно срабатывает и на странице ошибки, если YouTube заблокирован.
+    const hello=()=>{try{f.contentWindow.postMessage(JSON.stringify({event:"listening",id:1,channel:"widget"}),"*")}catch(e){}};
     f.addEventListener("load",()=>{
-      f.classList.add("ready");
-      setTimeout(()=>cover.querySelectorAll("img,.play").forEach(n=>n.remove()),400);
-      // просим плеер сообщать о запуске — для статистики «Слушать»
-      try{f.contentWindow.postMessage(JSON.stringify({event:"listening",id:1,channel:"widget"}),"*")}catch(e){}
+      hello();
+      if(!cover.dataset.ready&&!cover._ping){cover._ping=setInterval(hello,250);setTimeout(()=>clearInterval(cover._ping),60000)}
     });
+    cover._wait=setTimeout(()=>fail(cover),WAIT);
     cover.appendChild(f);
+  }
+  // Плеер ответил: показываем его, обложку и нашу кнопку убираем
+  function ready(cover){
+    if(cover.dataset.ready)return;
+    cover.dataset.ready="1";clearInterval(cover._ping);clearTimeout(cover._wait);
+    const f=cover.querySelector("iframe.yt");if(f)f.classList.add("ready");
+    setTimeout(()=>cover.querySelectorAll("img,.play").forEach(n=>n.remove()),400);
+  }
+  // Плеер не ответил (YouTube заблокирован или очень медленный): обложка остаётся,
+  // кнопка становится ссылкой на видео. Если плеер всё же догрузится позже, он займёт своё место.
+  function fail(cover){
+    if(cover.dataset.ready||cover.dataset.failed)return;
+    cover.dataset.failed="1";
+    const b=cover.querySelector("button.play");
+    if(b){
+      const a=document.createElement("a"),focused=document.activeElement===b;
+      a.className="play";a.href="https://www.youtube.com/watch?v="+cover.dataset.video;
+      a.setAttribute("data-umami-event","YouTube: песня");a.setAttribute("data-umami-event-song",songOf(cover));
+      a.innerHTML=b.innerHTML;b.replaceWith(a);
+      label(cover,"player-fallback");
+      if(focused)a.focus();
+    }
+    track("Плеер не загрузился",cover);
   }
   addEventListener("message",e=>{
     if(!YT.test(e.origin)||typeof e.data!=="string")return;
     let d;try{d=JSON.parse(e.data)}catch(err){return}
-    const playing=(d.event==="onStateChange"&&d.info===1)||(d.event==="infoDelivery"&&d.info&&d.info.playerState===1);
-    if(!playing)return;
+    if(!d||typeof d!=="object")return;
     document.querySelectorAll(".cover[data-mounted]").forEach(c=>{
       const f=c.querySelector("iframe");
-      if(f&&f.contentWindow===e.source&&!c.dataset.played){
-        c.dataset.played="1";
-        if(window.umami)try{umami.track("Слушать",{song:c.dataset.title.replace(/^Nevara — /,"")})}catch(err){}
-      }
+      if(!f||f.contentWindow!==e.source)return;
+      ready(c);
+      // для статистики «Слушать»: плеер сообщил, что песня запущена
+      const playing=(d.event==="onStateChange"&&d.info===1)||(d.event==="infoDelivery"&&d.info&&d.info.playerState===1);
+      if(playing&&!c.dataset.played){c.dataset.played="1";track("Слушать",c)}
     });
   });
   // Плеер YouTube тяжёлый (~1 МБ), поэтому грузим его не сразу, а при первом действии посетителя:
@@ -298,8 +334,13 @@ document.querySelectorAll(".share").forEach(b=>b.addEventListener("click",async(
   }
   const EV=["pointermove","pointerdown","touchstart","scroll","keydown","wheel"];
   EV.forEach(t=>addEventListener(t,start,{passive:true}));
-  // нажали нашу «Слушать» раньше, чем плеер загрузился, — ставим плеер сразу
-  document.addEventListener("click",e=>{const b=e.target.closest(".play");if(b){const c=b.closest(".cover");if(c){start();mount(c)}}});
+  // нажали нашу «Слушать» раньше, чем плеер загрузился, — ставим плеер сразу и показываем, что он грузится
+  document.addEventListener("click",e=>{
+    const b=e.target.closest("button.play");if(!b)return;
+    const c=b.closest(".cover");if(!c)return;
+    start();mount(c);
+    if(!c.dataset.ready&&!c.dataset.failed){b.setAttribute("aria-busy","true");label(c,"player-loading")}
+  });
 })();
 </script>
 {{ANALYTICS}}
