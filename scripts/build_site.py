@@ -330,7 +330,7 @@ def build_songs(root, tmp, og_fallback=SITE_URL + "nevara-og.jpg", analytics="")
         groups.setdefault(version_key(s["slug"]), []).append(s)
 
     pages = []
-    for i, s in enumerate(songs):
+    for s in songs:
         slug, name, vid = s["slug"], s["name"], s["id"]
         if not re.fullmatch(r"[a-z0-9-]+", slug) or not re.fullmatch(r"[A-Za-z0-9_-]{11}", vid):
             raise BuildError(f"неожиданные данные песни: {slug!r} / {vid!r}")

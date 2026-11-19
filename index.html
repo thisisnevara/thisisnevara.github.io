@@ -133,7 +133,6 @@ p{max-width:62ch;margin:0 0 14px;color:var(--muted)}
 /* Covers: hqdefault exists for every video; a 16:9 box with cover crops its letterbox bars exactly */
 .cover{position:relative;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:linear-gradient(135deg,#261642,#8b2861)}
 .cover img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
-.cover img.broken{display:none}
 /* Player in the new-release block: cover + play button, YouTube loads only after a click */
 .new-release .cover{aspect-ratio:auto;min-height:200px}
 .new-release .cover::before{content:"";display:block;padding-top:56.25%} /* 16:9, but never lower than 200px (YouTube minimum) */
@@ -187,9 +186,8 @@ p{max-width:62ch;margin:0 0 14px;color:var(--muted)}
 .c-text{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
 .c-name{font-weight:700;text-transform:uppercase;letter-spacing:.02em;overflow-wrap:anywhere}
 .c-sub{font-size:13px;color:var(--muted)}
-.c-genre{color:var(--sodium);font-weight:600}
-.c-sep{display:none}
-.c-genre{display:block;margin-top:2px}  /* genre always on its own line */
+.c-genre{display:block;margin-top:2px;color:var(--sodium);font-weight:600}  /* genre always on its own line */
+.c-sep{display:none}  /* separator stays in the markup for text-only readers; hidden because the genre has its own line */
 .catalog-list time{font-size:13px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
 .c-arrow{color:var(--muted)}
 @media (min-width:1024px){.catalog-list{columns:2;column-gap:16px}}  /* reads top-to-bottom, then the second column */
@@ -268,8 +266,6 @@ footer{max-width:1280px;margin:0 auto;padding:32px 0 48px;display:flex;flex-wrap
   .tagline{font-size:15px;margin:10px 0 16px;max-width:44ch}
   .btn{padding:12px 16px;font-size:14px}
 }
-@media (prefers-reduced-motion:reduce){
-}
 /* Subtle motion; all content remains visible without JavaScript. */
 html{scroll-behavior:smooth}
 .btn{transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease}
@@ -286,8 +282,11 @@ html{scroll-behavior:smooth}
 @media (hover:hover) and (prefers-reduced-motion:reduce){.btn:hover,.release:hover{transform:none}}
 .new-release .cover:after{content:'';position:absolute;inset:-30%;pointer-events:none;background:linear-gradient(110deg,transparent 42%,rgba(255,255,255,.3) 50%,transparent 58%);transform:translateX(-140%);transition:transform .8s ease}
 @media(hover:hover){.new-release:hover .cover:after,.new-release:focus-within .cover:after{transform:translateX(140%)}}
+/* Appear on scroll; the class is removed once the animation ends, so hover keeps its own quick .2s transition */
 .reveal-ready{transition:opacity .55s ease,transform .55s ease,border-color .2s,box-shadow .2s}
 .reveal-ready:not(.revealed){opacity:0;transform:translateY(14px)}
+/* In-page link targets get focus from the script; no outline around a whole section */
+[tabindex="-1"]:focus{outline:none}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.reveal-ready{opacity:1;transform:none;transition:none}.new-release .cover:after{display:none}}
 </style>
 </head>
@@ -435,9 +434,9 @@ html{scroll-behavior:smooth}
   go();addEventListener("load",()=>{go();requestAnimationFrame(go)});
 }catch(e){}})();
 const T={
-  ru:{tagline:"Два голоса. Один ритм. Русский и испанский, латинская энергия и музыка, которую хочется включить громче.",listen:"Слушать на YouTube",subscribe:"Подписаться","see-songs":"Смотреть песни ↓","h-songs":"Песни Nevara","songs-lead":"Найди свой ритм.","songs-intro":"Выбирай песню и слушай на официальном YouTube-канале Nevara.",watch:"Смотреть на YouTube ↗",new:"НОВЫЙ РЕЛИЗ",latest:"ПОСЛЕДНИЙ РЕЛИЗ","watch-new":"Смотреть на YouTube","listen-here":"Слушать","to-top":"Наверх","open-song":"Открыть песню\u00a0→","song-page":"Текст и описание\u00a0→","doc-title":"Nevara — Latin Pop и Reggaeton на русском и испанском языках",catalog:"Все песни Nevara","all-genres":"Все",genre:"Жанр",popular:"Популярные треки","all-songs":"Все песни на YouTube ↗",playlists:"Плейлисты ↗","h-about":"О проекте","about-lead":"Два языка, один ритм. Nevara соединяет русскую лирику с латинской энергией.","about-1":"Музыка для дороги, танцев и моментов, которые хочется повторить. В песнях звучат русский и испанский — иногда вместе, иногда по отдельности.","about-2":"Продакшн: Nevara Music.","lang-ru":"Русский","subscribe-long":"Подписаться на канал",prod:"продакшн Nevara Music"},
-  es:{tagline:"Dos voces, un ritmo. Ruso y español, energía latina y música para subir el volumen.",listen:"Escuchar en YouTube",subscribe:"Suscribirse","see-songs":"Ver canciones ↓","h-songs":"Canciones de Nevara","songs-lead":"Encuentra tu ritmo.","songs-intro":"Elige una canción y escúchala en el canal oficial de Nevara en YouTube.",watch:"Ver en YouTube ↗",new:"NUEVO LANZAMIENTO",latest:"ÚLTIMO LANZAMIENTO","watch-new":"Ver en YouTube","listen-here":"Escuchar","to-top":"Arriba","open-song":"Abrir canción\u00a0→","song-page":"Letra y descripción\u00a0→","doc-title":"Nevara — Latin Pop y Reggaeton en ruso y español",catalog:"Todas las canciones","all-genres":"Todas",genre:"Género",popular:"Canciones populares","all-songs":"Todas las canciones en YouTube ↗",playlists:"Playlists ↗","h-about":"El proyecto","about-lead":"Dos idiomas, un ritmo. Nevara une letras en ruso con energía latina.","about-1":"Música para viajar, bailar y volver a sentir. Las canciones suenan en ruso y en español, juntos o por separado.","about-2":"Producción: Nevara Music.","lang-ru":"Ruso","subscribe-long":"Suscribirse al canal",prod:"producción Nevara Music"},
-  en:{tagline:"Two voices. One rhythm. Russian and Spanish, Latin energy and music to turn up loud.",listen:"Listen on YouTube",subscribe:"Subscribe","see-songs":"Explore songs ↓","h-songs":"Nevara songs","songs-lead":"Find your rhythm.","songs-intro":"Choose a song and listen on the official Nevara YouTube channel.",watch:"Watch on YouTube ↗",new:"NEW RELEASE",latest:"LATEST RELEASE","watch-new":"Watch on YouTube","listen-here":"Listen","to-top":"Back to top","open-song":"Open song\u00a0→","song-page":"Lyrics and story\u00a0→","doc-title":"Nevara — Latin Pop and Reggaeton in Russian and Spanish",catalog:"All Nevara songs","all-genres":"All",genre:"Genre",popular:"Popular tracks","all-songs":"All songs on YouTube ↗",playlists:"Playlists ↗","h-about":"About","about-lead":"Two languages, one rhythm. Nevara brings Russian lyrics and Latin energy together.","about-1":"Music for the road, the dance floor and moments worth repeating. Songs in Russian and Spanish, together or apart.","about-2":"Production: Nevara Music.","lang-ru":"Russian","subscribe-long":"Subscribe to the channel",prod:"production by Nevara Music"}
+  ru:{tagline:"Два голоса. Один ритм. Русский и испанский, латинская энергия и музыка, которую хочется включить громче.",listen:"Слушать на YouTube",subscribe:"Подписаться","see-songs":"Смотреть песни ↓","h-songs":"Песни Nevara","songs-lead":"Найди свой ритм.","songs-intro":"Выбирай песню и слушай на официальном YouTube-канале Nevara.",new:"НОВЫЙ РЕЛИЗ",latest:"ПОСЛЕДНИЙ РЕЛИЗ","watch-new":"Смотреть на YouTube","listen-here":"Слушать","to-top":"Наверх","open-song":"Открыть песню\u00a0→","song-page":"Текст и описание\u00a0→","doc-title":"Nevara — Latin Pop и Reggaeton на русском и испанском языках",catalog:"Все песни Nevara","all-genres":"Все",genre:"Жанр",popular:"Популярные треки","all-songs":"Все песни на YouTube ↗",playlists:"Плейлисты ↗","h-about":"О проекте","about-lead":"Два языка, один ритм. Nevara соединяет русскую лирику с латинской энергией.","about-1":"Музыка для дороги, танцев и моментов, которые хочется повторить. В песнях звучат русский и испанский — иногда вместе, иногда по отдельности.","about-2":"Продакшн: Nevara Music.","lang-ru":"Русский","subscribe-long":"Подписаться на канал",prod:"продакшн Nevara Music"},
+  es:{tagline:"Dos voces, un ritmo. Ruso y español, energía latina y música para subir el volumen.",listen:"Escuchar en YouTube",subscribe:"Suscribirse","see-songs":"Ver canciones ↓","h-songs":"Canciones de Nevara","songs-lead":"Encuentra tu ritmo.","songs-intro":"Elige una canción y escúchala en el canal oficial de Nevara en YouTube.",new:"NUEVO LANZAMIENTO",latest:"ÚLTIMO LANZAMIENTO","watch-new":"Ver en YouTube","listen-here":"Escuchar","to-top":"Arriba","open-song":"Abrir canción\u00a0→","song-page":"Letra y descripción\u00a0→","doc-title":"Nevara — Latin Pop y Reggaeton en ruso y español",catalog:"Todas las canciones","all-genres":"Todas",genre:"Género",popular:"Canciones populares","all-songs":"Todas las canciones en YouTube ↗",playlists:"Playlists ↗","h-about":"El proyecto","about-lead":"Dos idiomas, un ritmo. Nevara une letras en ruso con energía latina.","about-1":"Música para viajar, bailar y volver a sentir. Las canciones suenan en ruso y en español, juntos o por separado.","about-2":"Producción: Nevara Music.","lang-ru":"Ruso","subscribe-long":"Suscribirse al canal",prod:"producción Nevara Music"},
+  en:{tagline:"Two voices. One rhythm. Russian and Spanish, Latin energy and music to turn up loud.",listen:"Listen on YouTube",subscribe:"Subscribe","see-songs":"Explore songs ↓","h-songs":"Nevara songs","songs-lead":"Find your rhythm.","songs-intro":"Choose a song and listen on the official Nevara YouTube channel.",new:"NEW RELEASE",latest:"LATEST RELEASE","watch-new":"Watch on YouTube","listen-here":"Listen","to-top":"Back to top","open-song":"Open song\u00a0→","song-page":"Lyrics and story\u00a0→","doc-title":"Nevara — Latin Pop and Reggaeton in Russian and Spanish",catalog:"All Nevara songs","all-genres":"All",genre:"Genre",popular:"Popular tracks","all-songs":"All songs on YouTube ↗",playlists:"Playlists ↗","h-about":"About","about-lead":"Two languages, one rhythm. Nevara brings Russian lyrics and Latin energy together.","about-1":"Music for the road, the dance floor and moments worth repeating. Songs in Russian and Spanish, together or apart.","about-2":"Production: Nevara Music.","lang-ru":"Russian","subscribe-long":"Subscribe to the channel",prod:"production by Nevara Music"}
 };
 const LOCALE={ru:"ru-RU",es:"es-ES",en:"en-GB"};
 function formatDates(l){
@@ -491,6 +490,9 @@ formatDates(document.documentElement.lang||"ru");
     const a=e.target.closest('a[href^="#"]');if(!a)return;
     const el=document.getElementById(a.getAttribute('href').slice(1));if(!el)return;
     e.preventDefault();go(el.getBoundingClientRect().top+scrollY);
+    // фокус переходит к цели: Tab и экранный диктор продолжают с раздела, а не из шапки
+    if(!el.hasAttribute('tabindex'))el.setAttribute('tabindex','-1');
+    try{el.focus({preventScroll:true})}catch(err){}
   });
 })();
 
@@ -562,7 +564,11 @@ document.querySelector('.hero').addEventListener('contextmenu',e=>{
 })();
 
 if ('IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: reduce)').matches){
-  const observer=new IntersectionObserver(entries=>entries.forEach(entry=>{if(entry.isIntersecting){entry.target.classList.add('revealed');observer.unobserve(entry.target)}}),{threshold:.08});
+  // после появления убираем служебные классы — иначе их медленный transition (.55s) достаётся и hover-эффекту карточек
+  const settle=ev=>{const el=ev.currentTarget;if(ev.target!==el||ev.propertyName!=='opacity')return;
+    el.classList.remove('reveal-ready','revealed');el.removeEventListener('transitionend',settle)};
+  const observer=new IntersectionObserver(entries=>entries.forEach(entry=>{if(entry.isIntersecting){
+    entry.target.addEventListener('transitionend',settle);entry.target.classList.add('revealed');observer.unobserve(entry.target)}}),{threshold:.08});
   const els=[...document.querySelectorAll('.new-release,.release,#about')];
   const below=els.map(el=>el.getBoundingClientRect().top>=innerHeight);   // read everything first…
   els.forEach((el,i)=>{if(below[i]){el.classList.add('reveal-ready');observer.observe(el)}});   // …then change

@@ -31,6 +31,7 @@ import urllib.request
 CHANNEL_ID = "UCz_nzmjWeqU3sNkWOv_rP9A"   # @thisisnevara
 POPULAR_COUNT = 4
 NEW_FOR_DAYS = 60          # дольше этого срока бейдж «Новый релиз» меняется на «Последний релиз»
+SHORTS_MAX_SECONDS = 180   # самый длинный возможный Shorts (с октября 2024 года — 3 минуты)
 VIDEO_ID = re.compile(r"^[A-Za-z0-9_-]{11}$")
 API = "https://www.googleapis.com/youtube/v3/"
 START = re.compile(r"(<!-- AUTO:RELEASES:START[^>]*-->\n)(.*?)(\n\s*<!-- AUTO:RELEASES:END -->)", re.S)
@@ -52,11 +53,35 @@ def http_get(url):
 def api(endpoint, **params):
     params["key"] = os.environ["YOUTUBE_API_KEY"]
     url = API + endpoint + "?" + urllib.parse.urlencode(params)
+    # В сообщениях об ошибке нет адреса запроса: в нём ключ API
     try:
         return json.loads(http_get(url))
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8", "replace")[:500]
         raise UpdateError(f"YouTube API {endpoint}: HTTP {e.code}: {body}") from e
+    except (urllib.error.URLError, OSError) as e:          # нет сети, таймаут, обрыв соединения
+        reason = getattr(e, "reason", None) or e
+        raise UpdateError(f"YouTube API {endpoint}: нет ответа ({type(e).__name__}: {reason})") from e
+    except ValueError as e:                                # ответ не JSON
+        raise UpdateError(f"YouTube API {endpoint}: непонятный ответ ({e})") from e
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args, **kwargs):
+        return None                                        # перенаправление не выполняем, а видим как ответ 3xx
+
+
+def is_shorts_page(vid):
+    """True, если youtube.com/shorts/<id> открывается как Shorts. Обычное видео YouTube
+    перенаправляет с этого адреса на /watch. При любой ошибке считаем видео обычным:
+    лишняя песня в списке лучше, чем пропавшая."""
+    req = urllib.request.Request(f"https://www.youtube.com/shorts/{vid}", method="HEAD",
+                                 headers={"User-Agent": "nevara-site-updater"})
+    try:
+        with urllib.request.build_opener(_NoRedirect).open(req, timeout=15) as r:
+            return r.status == 200
+    except Exception:
+        return False
 
 
 # ---------- данные с YouTube ----------
@@ -108,12 +133,16 @@ def fetch_videos():
                 continue
             if sn.get("liveBroadcastContent", "none") != "none":     # анонсы премьер и эфиры
                 continue
-            secs = iso_seconds(v.get("contentDetails", {}).get("duration"))
-            text = (sn.get("title", "") + " " + sn.get("description", "")).lower()
-            if not only_long and (secs <= 60 or "#shorts" in text):
-                continue
             if not VIDEO_ID.match(v.get("id", "")):
                 raise UpdateError(f"неожиданный формат id видео: {v.get('id')!r}")
+            secs = iso_seconds(v.get("contentDetails", {}).get("duration"))
+            text = (sn.get("title", "") + " " + sn.get("description", "")).lower()
+            if not only_long:
+                if secs <= 60 or "#shorts" in text:
+                    continue
+                # Shorts бывают до 3 минут, а песня тоже может быть короче 3 минут: такие видео проверяем по адресу /shorts/
+                if secs <= SHORTS_MAX_SECONDS and is_shorts_page(v["id"]):
+                    continue
             videos.append({
                 "id": v["id"],
                 "title": sn.get("title", ""),

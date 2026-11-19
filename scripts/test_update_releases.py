@@ -96,10 +96,13 @@ class UpdateTests(unittest.TestCase):
         with open(self.path, "w", encoding="utf-8") as f:
             f.write(PAGE)
         self._orig_get = upd.http_get
+        self._orig_shorts = upd.is_shorts_page
+        upd.is_shorts_page = lambda vid: False       # тесты не ходят в настоящий YouTube
         os.environ["YOUTUBE_API_KEY"] = "test-key"
 
     def tearDown(self):
         upd.http_get = self._orig_get
+        upd.is_shorts_page = self._orig_shorts
         shutil.rmtree(self.dir)
 
     def page(self):
@@ -322,6 +325,26 @@ class UpdateTests(unittest.TestCase):
                 page = self.run_with(FakeYouTube(uulf=uulf))
                 self.assertNotIn("SHORTS00001", page)
                 self.assertNotIn("PREMIERE001", page)
+
+    def test_fallback_drops_long_shorts(self):
+        """Без UULF: Shorts длиной до 3 минут отсекаются проверкой адреса /shorts/, короткие песни остаются."""
+        videos = VIDEOS + [("SHORTS00002", "Nevara — тизер", "2026-11-10T10:00:00Z", 70000, "PT1M50S", "none")]
+        checked = []
+        upd.is_shorts_page = lambda vid: checked.append(vid) or vid == "SHORTS00002"
+        page = self.run_with(FakeYouTube(videos=videos, uulf=False))
+        self.assertNotIn("SHORTS00002", page)
+        self.assertIn("C6ynOt9dk1M", page)            # песня 2:58 — не Shorts, осталась
+        self.assertIn("ZVjUQYGsI4c", page)            # песня 2:45 — тоже
+        self.assertNotIn("qUbkpldW_Z0", checked)      # 3:12 — длиннее любого Shorts, не проверяется
+
+    def test_network_error_becomes_update_error(self):
+        """Таймаут или обрыв сети — понятная ошибка UpdateError, а не трейсбек; ключ API в сообщение не попадает."""
+        def down(url):
+            raise TimeoutError("timed out")
+        upd.http_get = down
+        with self.assertRaises(upd.UpdateError) as cm:
+            upd.api("videos", id="x")
+        self.assertNotIn("test-key", str(cm.exception))
 
     def test_covers_saved_as_files_and_cropped(self):
         from PIL import Image
