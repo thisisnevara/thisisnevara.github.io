@@ -445,6 +445,21 @@ class HomeLanguageTests(unittest.TestCase):
         self.assertIn('try{localStorage.setItem("nevara-lang",document.documentElement.lang)}catch(e){}', p)
         self.assertIn('<html lang="es">', p)
 
+    def test_catalog_keeps_every_song_in_html(self):
+        """Список «Все песни» показывает сначала последние песни, но в HTML остаются все — со ссылками
+        (скрывает часть только скрипт), а надписи кнопки есть на всех трёх языках."""
+        with open(os.path.join(os.path.dirname(REAL_INDEX), "data", "songs.json"), encoding="utf-8") as f:
+            total = len(json.load(f)["songs"])
+        for name, lang in (("index.html", "ru"), ("es/index.html", "es"), ("en/index.html", "en")):
+            with self.subTest(lang=lang):
+                p = self.built(name)
+                catalog = p.split('<ol class="catalog-list">', 1)[1].split("</ol>", 1)[0]
+                self.assertEqual(catalog.count("<li "), total)
+                self.assertNotIn("c-extra", catalog)                  # без скрипта ничего не скрыто
+                strings = bs.ui_strings(p, lang, "index.html")
+                self.assertIn("{n}", strings["show-all"])
+                self.assertIn("{n}", strings["show-less"])
+
     def test_english_home_title(self):
         p = self.built("en/index.html")
         self.assertIn("<title>Nevara — Latin Pop and Reggaeton in Russian and Spanish</title>", p)
