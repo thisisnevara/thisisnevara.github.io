@@ -509,7 +509,11 @@ class LinkCheckTests(unittest.TestCase):
                                  '<a href="song/">ok</a><a href="#all-songs">ok</a><a href="https://x.com/">ext</a>'
                                  '<img src="img/a.webp" srcset="img/a.webp 800w, img/b.webp 1600w">'
                                  '<a href="nope/">bad</a><a href="#nowhere">bad</a>'
-                                 '<script>a.href="missing-in-script.html"</script></body></html>')
+                                 '<script>a.href="missing-in-script.html"</script>'
+                                 # скрипты и комментарии в любом написании не считаются ссылками
+                                 '<SCRIPT type="module">b.src="upper.png"; x="<a href=\'in-script.html\'>"</SCRIPT >'
+                                 '<!-- <a href="in-comment.html"> --!><!--<img src="c.png">-->'
+                                 '<a href="song/" class="x">&#111;k</a><img src="img/a.webp"/></body></html>')
         self.write("song/index.html", '<a href="../#all-songs">ok</a><a href="/fonts/fonts.css">ok</a>'
                                       '<a href="../#gone">bad</a><a href="../../outside.html">bad</a>')
 

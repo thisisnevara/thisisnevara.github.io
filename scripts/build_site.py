@@ -20,6 +20,7 @@
 import hashlib
 import html
 import io
+from html.parser import HTMLParser
 import json
 import os
 import re
@@ -672,9 +673,36 @@ def build_songs(root, tmp, og_fallback=SITE_URL + "nevara-og.jpg", analytics="",
 
 
 # ---------- проверка ссылок ----------
-REF_ATTR = re.compile(r'\b(src|href|srcset|imagesrcset)="([^"]*)"')
 CSS_URL = re.compile(r"""url\(\s*['"]?([^'")]+)""")
-ID_ATTR = re.compile(r'\bid="([^"]+)"')
+
+
+class PageRefs(HTMLParser):
+    """Адреса (src, href, srcset) и якоря (id) из тегов страницы — настоящим разбором HTML.
+    Содержимое <script> и комментарии разбор пропускает сам при любом их написании."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.refs, self.ids = [], set()
+
+    def handle_starttag(self, tag, attrs):
+        for name, val in attrs:
+            if val is None:
+                continue
+            if name == "id":
+                self.ids.add(val)
+            elif name in ("src", "href"):
+                self.refs.append(val)
+            elif name in ("srcset", "imagesrcset"):
+                self.refs += [p.split()[0] for p in val.split(",") if p.strip()]
+
+    handle_startendtag = handle_starttag
+
+
+def parse_page(text):
+    p = PageRefs()
+    p.feed(text)
+    p.close()
+    return p
 
 
 def check_links(site):
@@ -686,7 +714,7 @@ def check_links(site):
     def ids_of(path):
         if path not in ids:
             with open(path, encoding="utf-8") as f:
-                ids[path] = set(ID_ATTR.findall(f.read()))
+                ids[path] = parse_page(f.read()).ids
         return ids[path]
 
     for dirpath, _, files in os.walk(site):
@@ -700,11 +728,8 @@ def check_links(site):
             if fn.endswith(".css"):
                 refs = CSS_URL.findall(text)
             else:
-                # ссылки из скриптов и комментариев не считаем: проверяем только разметку
-                text = re.sub(r"<script\b[^>]*>.*?</script>|<!--.*?-->", "", text, flags=re.S)
-                for attr, val in REF_ATTR.findall(text):
-                    val = html.unescape(val)
-                    refs += [p.split()[0] for p in val.split(",") if p.strip()] if attr.endswith("srcset") else [val]
+                # только адреса из разметки: ссылки внутри скриптов и комментариев не считаются
+                refs = parse_page(text).refs
             for ref in refs:
                 ref = ref.strip()
                 if not ref or ref.startswith("//") or re.match(r"[a-z][a-z0-9+.-]*:", ref, re.I):
