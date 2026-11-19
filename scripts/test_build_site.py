@@ -31,6 +31,9 @@ class BuildTests(unittest.TestCase):
         self.write("index.html", INDEX)
         self.write("favicon.svg", "<svg/>")
         self.write("apple-touch-icon.png", "png")
+        self.write("manifest.webmanifest", "{}")
+        self.write("icon-192.png", "png")
+        self.write("icon-512.png", "png")
         self.write("CNAME", "thisisnevara.com\n")
         self.write("covers/AAAAAAAAAAA-480-abcdef.webp", "x")
 
@@ -60,7 +63,8 @@ class BuildTests(unittest.TestCase):
             self.assertIn(f"img/{f}", page)
         with Image.open(os.path.join(self.out, "nevara-og.jpg")) as og:
             self.assertEqual(og.size, (1200, 630))
-        for name in ("favicon.svg", "apple-touch-icon.png", "CNAME", "covers/AAAAAAAAAAA-480-abcdef.webp"):
+        for name in ("favicon.svg", "apple-touch-icon.png", "manifest.webmanifest", "icon-192.png",
+                     "icon-512.png", "CNAME", "covers/AAAAAAAAAAA-480-abcdef.webp"):
             self.assertTrue(os.path.exists(os.path.join(self.out, name)), name)
 
     def test_phone_numbers_from_settings(self):
@@ -540,6 +544,28 @@ class LinkCheckTests(unittest.TestCase):
         out = os.path.join(self.site, "_real")
         bs.build(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."), out, check=True)
         self.assertTrue(os.path.isfile(os.path.join(out, "fonts", "fonts.css")))
+        for name in ("manifest.webmanifest", "icon-192.png", "icon-512.png"):
+            self.assertTrue(os.path.isfile(os.path.join(out, name)), name)
+        # манифест подключён везде: главные, страницы песен, 404
+        for page in ("index.html", "es/index.html", "en/index.html", "bam-boleo/index.html", "404.html"):
+            with open(os.path.join(out, page), encoding="utf-8") as f:
+                self.assertIn('rel="manifest"', f.read(), page)
+
+
+class ManifestTests(unittest.TestCase):
+    """Значок для Android: manifest.webmanifest и PNG 192/512 нужного размера."""
+    ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+
+    def test_manifest_icons_exist_with_right_size(self):
+        from PIL import Image
+        with open(os.path.join(self.ROOT, "manifest.webmanifest"), encoding="utf-8") as f:
+            m = json.load(f)
+        self.assertEqual(m["start_url"], "/")
+        self.assertTrue(any(i.get("purpose") == "maskable" for i in m["icons"]))
+        for icon in m["icons"]:
+            path = os.path.join(self.ROOT, icon["src"].lstrip("/"))
+            with Image.open(path) as img:
+                self.assertEqual("%dx%d" % img.size, icon["sizes"], icon["src"])
 
 
 class MissingLyricsReportTests(unittest.TestCase):

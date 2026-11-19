@@ -29,7 +29,9 @@ import sys
 
 SITE_URL = "https://thisisnevara.com/"
 WIDTHS = (800, 1200, 1600)
-COPY = ("favicon.svg", "apple-touch-icon.png", "CNAME")   # apple-touch-icon — PNG 180×180 для iPhone: SVG iOS не берёт
+# apple-touch-icon — PNG 180×180 для iPhone: SVG iOS не берёт;
+# manifest.webmanifest + icon-192/512 — значок на домашнем экране Android
+COPY = ("favicon.svg", "apple-touch-icon.png", "manifest.webmanifest", "icon-192.png", "icon-512.png", "CNAME")
 UMAMI = "umami.txt"      # Website ID из Umami Cloud (вида 1a2b3c4d-…); нет файла — нет счётчика
 
 # Нажатия, которые считаем в Umami: «Поделиться», переходы на YouTube и подписка
