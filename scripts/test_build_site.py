@@ -28,6 +28,7 @@ class BuildTests(unittest.TestCase):
         self.settings({"couple_left": 570, "couple_right": 1550})
         self.write("index.html", INDEX)
         self.write("favicon.svg", "<svg/>")
+        self.write("apple-touch-icon.png", "png")
         self.write("CNAME", "thisisnevara.com\n")
         self.write("covers/AAAAAAAAAAA-480-abcdef.webp", "x")
 
@@ -57,7 +58,7 @@ class BuildTests(unittest.TestCase):
             self.assertIn(f"img/{f}", page)
         with Image.open(os.path.join(self.out, "nevara-og.jpg")) as og:
             self.assertEqual(og.size, (1200, 630))
-        for name in ("favicon.svg", "CNAME", "covers/AAAAAAAAAAA-480-abcdef.webp"):
+        for name in ("favicon.svg", "apple-touch-icon.png", "CNAME", "covers/AAAAAAAAAAA-480-abcdef.webp"):
             self.assertTrue(os.path.exists(os.path.join(self.out, name)), name)
 
     def test_phone_numbers_from_settings(self):
@@ -108,7 +109,7 @@ class BuildTests(unittest.TestCase):
 
 
 SONG_TPL = """<html><head><title>{{PAGE_TITLE}}</title><meta name="description" content="{{META_DESC}}">
-<link rel="canonical" href="{{CANONICAL}}"><meta property="og:image" content="{{OG_IMAGE}}">
+<link rel="canonical" href="{{CANONICAL}}"><meta property="og:image" content="{{OG_IMAGE}}"><meta property="og:image:alt" content="{{OG_ALT}}">
 <script type="application/ld+json">{{JSONLD}}</script></head><body>{{BACKDROP}}
 <div class="cover" data-video="{{VIDEO_ID}}">{{COVER_IMG}}</div><h1 style="--w:{{NAME_W}}">{{NAME}}</h1>{{LINE}}{{VERSIONS}}{{JUMP}}
 <p>{{TAGS}}<time datetime="{{DATE}}">{{DATE_SHOWN}}</time></p>{{ABOUT}}{{LYRICS}}<ul>{{OTHERS}}</ul>{{ANALYTICS}}</body></html>"""
@@ -183,6 +184,14 @@ class SongPageTests(unittest.TestCase):
         self.assertTrue(m)
         with Image.open(os.path.join(self.out, m.group(1))) as im:
             self.assertEqual((im.format, im.size), ("JPEG", (1200, 630)))
+
+    def test_share_preview_has_alt_text(self):
+        self.songs[1]["cover"] = None
+        self.write("data/songs.json", json.dumps({"songs": self.songs}, ensure_ascii=False))
+        bs.build(self.root, self.out)
+        self.assertIn('og:image:alt" content="Обложка песни «Пароль» — Nevara"', self.page("parol"))
+        # без обложки превью — общая картинка сайта, и подпись тоже общая
+        self.assertIn('og:image:alt" content="Nevara — дуэт на вечерней террасе', self.page("na-maksimum"))
 
     def test_analytics_only_with_code_file(self):
         self.write("404.html", "<html><head><meta name=robots content=noindex></head><body>404{{ANALYTICS}}</body></html>")

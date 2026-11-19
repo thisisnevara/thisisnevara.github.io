@@ -28,7 +28,7 @@ import sys
 
 SITE_URL = "https://thisisnevara.com/"
 WIDTHS = (800, 1200, 1600)
-COPY = ("favicon.svg", "CNAME")
+COPY = ("favicon.svg", "apple-touch-icon.png", "CNAME")   # apple-touch-icon — PNG 180×180 для iPhone: SVG iOS не берёт
 UMAMI = "umami.txt"      # Website ID из Umami Cloud (вида 1a2b3c4d-…); нет файла — нет счётчика
 
 # Нажатия, которые считаем в Umami: «Поделиться», переходы на YouTube и подписка
@@ -434,7 +434,10 @@ def build_songs(root, tmp, og_fallback=SITE_URL + "nevara-og.jpg", analytics="")
                                             "text": "\n\n".join("\n".join(st) for st in stanzas)}}
         values = {
             "{{PAGE_TITLE}}": esc(page_title), "{{META_DESC}}": esc(meta), "{{CANONICAL}}": url,
-            "{{OG_IMAGE}}": SITE_URL + og_name if og_name else og_fallback, "{{BACKDROP}}": f'<img src="{bg}" alt="" draggable="false">' if bg else "", "{{VIDEO_ID}}": vid, "{{COVER_IMG}}": (f'<img src="../{esc(cover)}" alt="Nevara — {esc(name)}" width="800" height="450" '
+            "{{OG_IMAGE}}": SITE_URL + og_name if og_name else og_fallback,
+            # подпись к картинке превью (для незрячих и когда картинка не загрузилась)
+            "{{OG_ALT}}": esc(f"Обложка песни «{nice}» — Nevara" if og_name else "Nevara — дуэт на вечерней террасе с видом на ночной город"),
+            "{{BACKDROP}}": f'<img src="{bg}" alt="" draggable="false">' if bg else "", "{{VIDEO_ID}}": vid, "{{COVER_IMG}}": (f'<img src="../{esc(cover)}" alt="Nevara — {esc(name)}" width="800" height="450" '
                               f'fetchpriority="high">' if has_cover else ""),
             "{{NAME}}": esc(name),
             # длина самого длинного слова (дефис — место переноса): по ней страница подбирает размер названия
