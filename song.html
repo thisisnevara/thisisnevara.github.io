@@ -95,6 +95,7 @@ section{display:grid;grid-template-columns:minmax(140px,200px) minmax(0,1fr);gap
 h2{font-family:var(--display);font-weight:700;font-size:14px;letter-spacing:.2em;text-transform:uppercase;color:var(--sodium);margin:6px 0 0}
 .about p{max-width:65ch;margin:0 0 14px;color:var(--ink)}
 .about p+p{color:var(--muted)}
+.about-note{font-size:14px;color:var(--muted);margin:0 0 12px}
 .lyrics{columns:2 300px;column-gap:48px}
 .lyrics p{break-inside:avoid;margin:0 0 22px;line-height:1.7}
 .others{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;list-style:none;margin:0;padding:0}
@@ -213,9 +214,9 @@ footer{max-width:1068px;margin:0 auto;padding:28px 0 44px;display:flex;flex-wrap
   go();addEventListener("load",()=>{go();requestAnimationFrame(go)});
 }catch(e){}})();
 const T={
-  ru:{back:"← Все песни",listen:"Слушать","player-loading":"Загружаем плеер…","player-fallback":"Смотреть на YouTube",youtube:"Смотреть на YouTube",subscribe:"Подписаться",about:"О песне",lyrics:"Текст песни",more:"Ещё песни",all:"Все песни Nevara",prod:"продакшн Nevara Music",jump:"Текст песни ↓",share:"Поделиться",copied:"Ссылка скопирована","ver-ru":"Русская версия","ver-es":"Испанская версия"},
-  es:{back:"← Todas las canciones",listen:"Escuchar","player-loading":"Cargando el reproductor…","player-fallback":"Ver en YouTube",youtube:"Ver en YouTube",subscribe:"Suscribirse",about:"Sobre la canción",lyrics:"Letra",more:"Más canciones",all:"Todas las canciones",prod:"producción Nevara Music",jump:"Letra ↓",share:"Compartir",copied:"Enlace copiado","ver-ru":"Versión en ruso","ver-es":"Versión en español"},
-  en:{back:"← All songs",listen:"Listen","player-loading":"Loading player…","player-fallback":"Watch on YouTube",youtube:"Watch on YouTube",subscribe:"Subscribe",about:"About the song",lyrics:"Lyrics",more:"More songs",all:"All Nevara songs",prod:"production by Nevara Music",jump:"Lyrics ↓",share:"Share",copied:"Link copied","ver-ru":"Russian version","ver-es":"Spanish version"}
+  ru:{back:"← Все песни",listen:"Слушать","player-loading":"Загружаем плеер…","player-fallback":"Смотреть на YouTube",youtube:"Смотреть на YouTube",subscribe:"Подписаться",about:"О песне",lyrics:"Текст песни",more:"Ещё песни",all:"Все песни Nevara",prod:"продакшн Nevara Music",jump:"Текст песни ↓",share:"Поделиться",copied:"Ссылка скопирована","ver-ru":"Русская версия","ver-es":"Испанская версия","orig-ru":"Описание на русском — перевода пока нет","orig-es":"Описание на испанском — перевода пока нет","orig-en":"Описание на английском — перевода пока нет"},
+  es:{back:"← Todas las canciones",listen:"Escuchar","player-loading":"Cargando el reproductor…","player-fallback":"Ver en YouTube",youtube:"Ver en YouTube",subscribe:"Suscribirse",about:"Sobre la canción",lyrics:"Letra",more:"Más canciones",all:"Todas las canciones",prod:"producción Nevara Music",jump:"Letra ↓",share:"Compartir",copied:"Enlace copiado","ver-ru":"Versión en ruso","ver-es":"Versión en español","orig-ru":"Descripción original en ruso: aún no hay traducción","orig-es":"Descripción original en español: aún no hay traducción","orig-en":"Descripción original en inglés: aún no hay traducción"},
+  en:{back:"← All songs",listen:"Listen","player-loading":"Loading player…","player-fallback":"Watch on YouTube",youtube:"Watch on YouTube",subscribe:"Subscribe",about:"About the song",lyrics:"Lyrics",more:"More songs",all:"All Nevara songs",prod:"production by Nevara Music",jump:"Lyrics ↓",share:"Share",copied:"Link copied","ver-ru":"Russian version","ver-es":"Spanish version","orig-ru":"Original description in Russian: no translation yet","orig-es":"Original description in Spanish: no translation yet","orig-en":"Original description in English: no translation yet"}
 };
 const LOCALE={ru:"ru-RU",es:"es-ES",en:"en-GB"};
 function setLang(l){
@@ -226,6 +227,11 @@ function setLang(l){
   // логотип и «Все песни» — на главную выбранного языка: /, /es/, /en/
   document.querySelectorAll("a[data-home]").forEach(a=>a.setAttribute("href",(l==="ru"?"../":"../"+l+"/")+a.dataset.home));
   // значок «На главный экран» тоже открывает главную выбранного языка
+  // «О песне» на выбранном языке; перевода нет — оригинал с пометкой, на каком он языке
+  const ab=document.querySelectorAll("[data-about]");
+  if(ab.length){const has=[...ab].some(d=>d.dataset.about===l),note=document.querySelector(".about-note"),orig=note?note.dataset.orig:ab[0].dataset.about;
+    ab.forEach(d=>{d.hidden=d.dataset.about!==(has?l:orig)});
+    if(note){note.hidden=has;note.textContent=has?"":T[l]["orig-"+orig]||""}}
   const mf=document.querySelector('link[rel="manifest"]');if(mf)mf.setAttribute("href",(l==="ru"?"../":"../"+l+"/")+"manifest.webmanifest");
   try{const f=new Intl.DateTimeFormat(LOCALE[l],{day:"numeric",month:"long",year:"numeric",timeZone:"UTC"});
     document.querySelectorAll("time[datetime]").forEach(el=>{const d=new Date(el.getAttribute("datetime")+"T00:00:00Z");if(!isNaN(d))el.textContent=f.format(d).replace(" г.","");});}catch(e){}

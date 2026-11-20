@@ -581,6 +581,58 @@ class ManifestTests(unittest.TestCase):
                 self.assertEqual("%dx%d" % img.size, icon["sizes"], icon["src"])
 
 
+class AboutTranslationTests(unittest.TestCase):
+    """«О песне»: оригинал виден сразу, переводы из about/<язык>/<адрес>.txt лежат в HTML скрытыми,
+    пометка «перевода пока нет» появляется, только если какого-то языка не хватает."""
+    def setUp(self):
+        self.root = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.root)
+
+    def add(self, lang, slug, text):
+        os.makedirs(os.path.join(self.root, "about", lang), exist_ok=True)
+        with open(os.path.join(self.root, "about", lang, slug + ".txt"), "w", encoding="utf-8", newline="") as f:
+            f.write(text)
+
+    def test_all_translations(self):
+        self.add("es", "song", "Uno\nlínea dos\r\n\r\nDos & <b>")
+        self.add("en", "song", "One")
+        h = bs.about_html(self.root, "song", "ru", ["Раз", "Два"])
+        self.assertIn('<div class="about" lang="ru" data-about="ru"><p>Раз</p><p>Два</p></div>', h)
+        self.assertIn('<div class="about" lang="es" data-about="es" hidden><p>Uno línea dos</p><p>Dos &amp; &lt;b&gt;</p></div>', h)
+        self.assertIn('data-about="en" hidden><p>One</p>', h)
+        self.assertNotIn("about-note", h)                 # все языки есть — пометка не нужна
+
+    def test_missing_translation_keeps_original_with_note(self):
+        self.add("es", "song", "Uno")
+        h = bs.about_html(self.root, "song", "ru", ["Раз"])
+        self.assertIn('<p class="about-note" data-orig="ru" hidden></p>', h)
+        self.assertNotIn('data-about="en"', h)
+        self.assertEqual(bs.about_html(self.root, "song", "ru", []), "")   # нет описания — нет раздела
+
+    def test_spanish_page_original_is_spanish(self):
+        self.add("ru", "song", "Раз")
+        h = bs.about_html(self.root, "song", "es", ["Uno"])
+        self.assertIn('<div class="about" lang="es" data-about="es"><p>Uno</p>', h)
+        self.assertIn('data-about="ru" hidden', h)
+        self.assertIn('data-orig="es"', h)
+
+    def test_every_song_has_es_and_en(self):
+        """В репозитории у каждой песни есть перевод «О песне» на оба других языка."""
+        root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+        with open(os.path.join(root, "data", "songs.json"), encoding="utf-8") as f:
+            songs = json.load(f)["songs"]
+        langs = bs.load_page_langs(root, {s["slug"] for s in songs})
+        for s in songs:
+            if not s.get("description"):
+                continue
+            own = langs.get(s["slug"], "ru")
+            for l in ("ru", "es", "en"):
+                if l != own:
+                    self.assertTrue(bs.read_about(root, l, s["slug"]), f"about/{l}/{s['slug']}.txt")
+
+
 class MissingLyricsReportTests(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()

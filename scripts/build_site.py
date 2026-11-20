@@ -452,6 +452,39 @@ def localize_home(page, lang, strings):
     return page
 
 
+ABOUT_DIR = "about"         # переводы «О песне»: about/es/<адрес>.txt, about/en/<адрес>.txt (и about/ru/ для испанских)
+
+
+def read_about(root, lang, slug):
+    """Перевод «О песне» из about/<язык>/<адрес>.txt: абзацы разделены пустой строкой."""
+    path = os.path.join(root, ABOUT_DIR, lang, f"{slug}.txt")
+    if not os.path.exists(path):
+        return []
+    with open(path, encoding="utf-8-sig") as f:
+        text = f.read().replace("\r\n", "\n")
+    return [" ".join(p.split()) for p in re.split(r"\n\s*\n", text) if p.strip()]
+
+
+def about_html(root, slug, lang, description):
+    """Раздел «О песне»: оригинал (описание с YouTube) и переводы из about/. Все версии лежат в HTML,
+    скрипт страницы показывает версию на выбранном языке; если перевода нет — оригинал
+    с пометкой, на каком он языке. Без скрипта виден оригинал."""
+    if not description:
+        return ""
+    versions = [(lang, description)]
+    versions += [(l, read_about(root, l, slug)) for l in OG_LOCALE if l != lang]
+    blocks = []
+    for l, paras in versions:
+        if not paras:
+            continue
+        hidden = "" if l == lang else " hidden"
+        body = "".join(f"<p>{esc(p)}</p>" for p in paras)
+        # lang у текста: экранный диктор читает каждую версию на её языке
+        blocks.append(f'<div class="about" lang="{l}" data-about="{l}"{hidden}>{body}</div>')
+    note = f'<p class="about-note" data-orig="{lang}" hidden></p>' if len(blocks) < len(OG_LOCALE) else ""
+    return f'<section><h2 data-i18n="about">О песне</h2>{note}{"".join(blocks)}</section>'
+
+
 def version_key(slug):
     """Общий ключ для языковых версий: bam-boleo и bamboleo-espanol -> bamboleo."""
     return re.sub(r"-(?:espanol|spanish|russkiy|russian|ru|es)$", "", slug).replace("-", "")
@@ -581,12 +614,7 @@ def build_songs(root, tmp, og_fallback=SITE_URL + "nevara-og.jpg", analytics="",
                 f.write(raw)
 
         # Описание и текст
-        about = ""
-        if s.get("description"):
-            paras = "".join(f"<p>{esc(p)}</p>" for p in s["description"])
-            # lang у содержимого: если посетитель переключит подписи на другой язык, текст песни
-            # и описание всё равно читаются экранным диктором на своём языке
-            about = f'<section><h2 data-i18n="about">О песне</h2><div class="about" lang="{lang}">{paras}</div></section>'
+        about = about_html(root, slug, lang, s.get("description"))
         lyrics_html, has_lyrics = "", False
         lpath = os.path.join(root, "lyrics", f"{slug}.txt")
         if os.path.exists(lpath):
