@@ -618,19 +618,17 @@ class AboutTranslationTests(unittest.TestCase):
         self.assertIn('data-about="ru" hidden', h)
         self.assertIn('data-orig="es"', h)
 
-    def test_every_song_has_es_and_en(self):
-        """В репозитории у каждой песни есть перевод «О песне» на оба других языка."""
-        root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
-        with open(os.path.join(root, "data", "songs.json"), encoding="utf-8") as f:
-            songs = json.load(f)["songs"]
-        langs = bs.load_page_langs(root, {s["slug"] for s in songs})
-        for s in songs:
-            if not s.get("description"):
-                continue
-            own = langs.get(s["slug"], "ru")
-            for l in ("ru", "es", "en"):
-                if l != own:
-                    self.assertTrue(bs.read_about(root, l, s["slug"]), f"about/{l}/{s['slug']}.txt")
+    def test_missing_translations_are_reported_not_failed(self):
+        """Новая песня без перевода не ломает сборку: она попадает в напоминание в итогах запуска."""
+        summary = os.path.join(self.root, "summary.md")
+        with contextlib.redirect_stdout(io.StringIO()):
+            lines = bs.report_missing_about([("Новая", "about/es/novaya.txt")], {"GITHUB_STEP_SUMMARY": summary})
+        self.assertEqual(lines, ["Нет перевода «О песне»: «Новая» — about/es/novaya.txt"])
+        with open(summary, encoding="utf-8") as f:
+            text = f.read()
+        self.assertIn("Нет перевода «О песне» (1)", text)
+        self.assertIn("- «Новая» — `about/es/novaya.txt`", text)
+        self.assertNotIn("::warning", text)
 
 
 class MissingLyricsReportTests(unittest.TestCase):
